@@ -1,0 +1,8 @@
+{
+  "name": "SportMaster Pro - Plataforma de Gestión Deportiva",
+  "description": "SaaS para la gestión integral de ligas y torneos de fútbol y vóley con pizarra táctica interactiva, registro de jugadores, control de fixtures y estadísticas automatizadas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
