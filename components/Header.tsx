@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { SportType, UserRole } from '@/types/sports';
-import { Shield, Eye, Lock, Database, Trophy, Users, LayoutDashboard, Compass, Activity, LogOut, KeyRound } from 'lucide-react';
+import { Shield, Trophy, Users, LayoutDashboard, Compass, Activity, LogOut, KeyRound } from 'lucide-react';
 
 interface HeaderProps {
   currentSport: SportType;
@@ -13,7 +13,6 @@ interface HeaderProps {
   onLogoutAdmin: () => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
-  onOpenArchitectureModal: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,7 +24,6 @@ export const Header: React.FC<HeaderProps> = ({
   onLogoutAdmin,
   activeTab,
   onTabChange,
-  onOpenArchitectureModal,
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,17 +34,17 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-15 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
         {/* Zone 1: Wordmark brand */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900 to-emerald-950/40 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold shadow-md shadow-emerald-950/50">
-            <Activity className="w-5 h-5 text-emerald-400" />
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900 to-emerald-950/40 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold shadow-md shadow-emerald-950/50 shrink-0">
+            <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-              AuraSport <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/50">PRO</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm sm:text-lg font-bold tracking-tight text-white flex items-center gap-1.5 sm:gap-2 truncate">
+              AuraSport <span className="text-emerald-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/50 shrink-0">PRO</span>
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">Gestión Integral Fútbol & Vóley</span>
+            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline truncate">Gestión Integral Fútbol & Vóley</span>
           </div>
         </div>
 
@@ -102,14 +100,14 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Secure Role Management (Admin Login vs Public Spectator) */}
           {userRole === 'admin' ? (
-            <div className="flex items-center gap-1.5 bg-amber-950/40 border border-amber-600/50 p-1 rounded-lg">
+            <div className="flex items-center gap-1 sm:gap-1.5 bg-amber-950/40 border border-amber-600/50 p-1 rounded-lg">
               <div
                 title={`Sesión iniciada como ${adminEmail}`}
-                className="flex items-center gap-1.5 px-2 py-1 text-xs font-bold text-amber-300"
+                className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-bold text-amber-300"
               >
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span className="hidden sm:inline max-w-[100px] truncate">{adminEmail.split('@')[0]}</span>
-                <span className="sm:hidden">Admin</span>
+                <span className="sm:hidden text-[11px]">Admin</span>
               </div>
               <button
                 onClick={onLogoutAdmin}
@@ -123,22 +121,13 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenAdminLogin}
               title="Iniciar sesión como Administrador"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm transition-all active:scale-[0.98]"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm transition-all active:scale-[0.98]"
             >
               <KeyRound className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="whitespace-nowrap">Acceso Admin</span>
+              <span className="hidden sm:inline whitespace-nowrap">Acceso Admin</span>
+              <span className="sm:hidden whitespace-nowrap text-[11px]">Admin</span>
             </button>
           )}
-
-          {/* Architecture & Backend Guide */}
-          <button
-            onClick={onOpenArchitectureModal}
-            title="Ver Guía de Arquitectura, Supabase SQL y Cloudinary para VS Code"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition-colors"
-          >
-            <Database className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="whitespace-nowrap">Supabase / VS Code</span>
-          </button>
         </div>
       </div>
 

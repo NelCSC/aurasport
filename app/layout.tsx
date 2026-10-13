@@ -1,5 +1,12 @@
-import type {Metadata} from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css'; // Global styles
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#020617',
+};
 
 export const metadata: Metadata = {
   title: 'AuraSport PRO - Plataforma de Gestión Deportiva',
@@ -19,7 +26,7 @@ export const metadata: Metadata = {
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="es" className="dark">
-      <body suppressHydrationWarning className="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-black">
+      <body suppressHydrationWarning className="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-black overflow-x-hidden">
         {children}
       </body>
     </html>

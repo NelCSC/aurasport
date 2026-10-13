@@ -238,7 +238,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Top Bar */}
       <Header
         currentSport={currentSport}
@@ -249,11 +249,11 @@ export default function Home() {
         onLogoutAdmin={handleAdminLogout}
         activeTab={activeTab}
         onTabChange={(t) => setActiveTab(t)}
-        onOpenArchitectureModal={() => setIsArchitectureModalOpen(true)}
       />
 
       {/* Main App Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 overflow-x-hidden">
+        
         {/* Render Tab Content */}
         {activeTab === 'dashboard' && (
           <DashboardOverview
