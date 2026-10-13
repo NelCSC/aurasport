@@ -294,12 +294,15 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
 
   // Sync with initialMatchId if passed
   useEffect(() => {
-    if (initialMatchId && sportMatches.some((m) => m.id === initialMatchId)) {
-      setSelectedMatchId(initialMatchId);
-    } else if (!sportMatches.some((m) => m.id === selectedMatchId) && sportMatches[0]) {
-      setSelectedMatchId(sportMatches[0].id);
-    }
-  }, [initialMatchId, currentSport, sportMatches]);
+    const timer = setTimeout(() => {
+      if (initialMatchId && sportMatches.some((m) => m.id === initialMatchId)) {
+        setSelectedMatchId(initialMatchId);
+      } else if (!sportMatches.some((m) => m.id === selectedMatchId) && sportMatches[0]) {
+        setSelectedMatchId(sportMatches[0].id);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [initialMatchId, currentSport, sportMatches, selectedMatchId]);
 
   const currentMatch = sportMatches.find((m) => m.id === selectedMatchId) || sportMatches[0];
   const formations = DEFAULT_TACTICAL_FORMATIONS[currentSport] || [];
@@ -338,27 +341,31 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
   useEffect(() => {
     if (!currentMatch) return;
 
-    const hFormId = currentMatch.homeFormationId || formations[0]?.id || '';
-    const aFormId = currentMatch.awayFormationId || formations[0]?.id || '';
-    setHomeFormationId(hFormId);
-    setAwayFormationId(aFormId);
-    setHomeRotation(1);
-    setAwayRotation(1);
+    const timer = setTimeout(() => {
+      const hFormId = currentMatch.homeFormationId || formations[0]?.id || '';
+      const aFormId = currentMatch.awayFormationId || formations[0]?.id || '';
+      setHomeFormationId(hFormId);
+      setAwayFormationId(aFormId);
+      setHomeRotation(1);
+      setAwayRotation(1);
 
-    const hPlayerIds = currentMatch.homePlayerIds || [];
-    const aPlayerIds = currentMatch.awayPlayerIds || [];
+      const hPlayerIds = currentMatch.homePlayerIds || [];
+      const aPlayerIds = currentMatch.awayPlayerIds || [];
 
-    if (currentMatch.homeTacticalSlots && currentMatch.homeTacticalSlots.length > 0) {
-      setHomeSlots(currentMatch.homeTacticalSlots);
-    } else {
-      setHomeSlots(generateFullFieldSlots(currentSport, 'home', hFormId, hPlayerIds));
-    }
+      if (currentMatch.homeTacticalSlots && currentMatch.homeTacticalSlots.length > 0) {
+        setHomeSlots(currentMatch.homeTacticalSlots);
+      } else {
+        setHomeSlots(generateFullFieldSlots(currentSport, 'home', hFormId, hPlayerIds));
+      }
 
-    if (currentMatch.awayTacticalSlots && currentMatch.awayTacticalSlots.length > 0) {
-      setAwaySlots(currentMatch.awayTacticalSlots);
-    } else {
-      setAwaySlots(generateFullFieldSlots(currentSport, 'away', aFormId, aPlayerIds));
-    }
+      if (currentMatch.awayTacticalSlots && currentMatch.awayTacticalSlots.length > 0) {
+        setAwaySlots(currentMatch.awayTacticalSlots);
+      } else {
+        setAwaySlots(generateFullFieldSlots(currentSport, 'away', aFormId, aPlayerIds));
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [selectedMatchId, currentSport, currentMatch?.id]);
 
   // Handle formation change

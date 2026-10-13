@@ -14,78 +14,59 @@ export const supabase = isSupabaseConfigured
   : null;
 
 /**
- * Helper to log in as Administrator using Supabase Auth or Built-in Master Admin
+ * Helper to log in as Administrator using strict Supabase Auth
+ * Only users actually registered in Supabase Authentication are granted access.
  */
 export async function loginAdminWithSupabase(email: string, password: string) {
   const cleanEmail = (email || '').trim().toLowerCase();
   const cleanPassword = (password || '').trim();
 
-  const isDemoAdminCredentials =
-    (cleanEmail === 'admin@aurasport.com' ||
-      cleanEmail === 'admin' ||
-      cleanEmail === 'admin@ligasport.com' ||
-      cleanEmail === 'nelzoncsc@gmail.com') &&
-    (cleanPassword === 'admin123' || cleanPassword === 'admin');
-
-  // Master key bypass: If the user provides the demo password 'admin123' or 'admin'
-  if (isDemoAdminCredentials || (cleanEmail && cleanPassword === 'admin123')) {
-    const finalEmail = cleanEmail.includes('@') ? cleanEmail : `${cleanEmail}@aurasport.com`;
+  if (!cleanEmail || !cleanPassword) {
     return {
-      user: {
-        id: 'master-admin',
-        email: finalEmail,
-        role: 'admin',
-        user_metadata: { role: 'admin', name: 'Administrador Maestro' },
-      },
-      error: null,
-      authMethod: 'master_demo',
+      user: null,
+      error: new Error('Por favor ingresa tanto el correo electrónico como la contraseña.'),
     };
   }
 
-  // If Supabase is not configured yet, notify user with demo credentials hint
+  // If Supabase is not configured in environment variables
   if (!supabase) {
     return {
       user: null,
       error: new Error(
-        'Supabase aún no está conectado en .env.local. Puedes ingresar con el Admin Maestro: admin@aurasport.com / clave: admin123'
+        'Supabase no está configurado en las variables de entorno (NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY). Solo los usuarios creados en Supabase pueden acceder.'
       ),
-      authMethod: 'local',
+      authMethod: 'unconfigured',
     };
   }
 
-  // If Supabase is configured, attempt authentication against Supabase Auth
+  // Strictly authenticate against Supabase Auth
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password: cleanPassword,
     });
 
-    if (error) {
-      // Fallback: If user entered demo password admin123, grant admin access anyway
-      if (cleanPassword === 'admin123' || cleanPassword === 'admin') {
-        return {
-          user: {
-            id: 'demo-admin-fallback',
-            email: cleanEmail || 'admin@aurasport.com',
-            role: 'admin',
-          },
-          error: null,
-          authMethod: 'master_fallback',
-        };
-      }
+    if (error || !data?.user) {
+      const errorMsg =
+        error?.message === 'Invalid login credentials'
+          ? 'Credenciales incorrectas. Este usuario o contraseña no existen en tu panel de Supabase.'
+          : error?.message || 'Error al autenticar con Supabase.';
+
       return {
         user: null,
-        error: new Error(
-          `Supabase Auth: ${error.message}. Usa la clave demo "admin123" o registra el usuario en tu consola de Supabase.`
-        ),
+        error: new Error(errorMsg),
       };
     }
 
-    return { user: data.user, error: null, authMethod: 'supabase' };
+    return {
+      user: data.user,
+      error: null,
+      authMethod: 'supabase',
+    };
   } catch (err: any) {
     return {
       user: null,
-      error: new Error(err?.message || 'Error al conectar con el servidor de autenticación.'),
+      error: new Error(err?.message || 'Error de red o conexión al contactar Supabase.'),
     };
   }
 }

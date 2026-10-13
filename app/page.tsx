@@ -13,7 +13,6 @@ import { TacticalBoard } from '@/components/TacticalBoard';
 import { PlayerRosterManager } from '@/components/PlayerRosterManager';
 import { TournamentManager } from '@/components/TournamentManager';
 import { MatchResultRecorderModal } from '@/components/MatchResultRecorderModal';
-import { ArchitectureGuideModal } from '@/components/ArchitectureGuideModal';
 import { AdminLoginModal } from '@/components/AdminLoginModal';
 import { MessageCircle, Facebook, Mail } from 'lucide-react';
 
@@ -31,7 +30,6 @@ export default function Home() {
   const [matches, setMatches] = useState<MatchEvent[]>(INITIAL_MATCHES);
 
   // Modals
-  const [isArchitectureModalOpen, setIsArchitectureModalOpen] = useState(false);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
   const [recordingMatch, setRecordingMatch] = useState<MatchEvent | null>(null);
 
@@ -44,26 +42,29 @@ export default function Home() {
 
   // Local storage persistence & admin session check
   useEffect(() => {
-    try {
-      const savedPlayers = localStorage.getItem('sportmaster_players_pool');
-      const savedTournaments = localStorage.getItem('sportmaster_tournaments_pool');
-      const savedMatches = localStorage.getItem('sportmaster_matches_pool');
-      const savedAdminSession = localStorage.getItem('sportmaster_admin_session');
+    const timer = setTimeout(() => {
+      try {
+        const savedPlayers = localStorage.getItem('sportmaster_players_pool');
+        const savedTournaments = localStorage.getItem('sportmaster_tournaments_pool');
+        const savedMatches = localStorage.getItem('sportmaster_matches_pool');
+        const savedAdminSession = localStorage.getItem('sportmaster_admin_session');
 
-      if (savedPlayers) setPlayers(JSON.parse(savedPlayers));
-      if (savedTournaments) setTournaments(JSON.parse(savedTournaments));
-      if (savedMatches) setMatches(JSON.parse(savedMatches));
+        if (savedPlayers) setPlayers(JSON.parse(savedPlayers));
+        if (savedTournaments) setTournaments(JSON.parse(savedTournaments));
+        if (savedMatches) setMatches(JSON.parse(savedMatches));
 
-      if (savedAdminSession) {
-        const session = JSON.parse(savedAdminSession);
-        if (session.email) {
-          setAdminEmail(session.email);
-          setUserRole('admin');
+        if (savedAdminSession) {
+          const session = JSON.parse(savedAdminSession);
+          if (session.email) {
+            setAdminEmail(session.email);
+            setUserRole('admin');
+          }
         }
+      } catch (e) {
+        console.warn('Could not load from localStorage:', e);
       }
-    } catch (e) {
-      console.warn('Could not load from localStorage:', e);
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleAdminLoginSuccess = (email: string) => {
@@ -238,7 +239,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans w-full max-w-full overflow-x-clip">
       {/* Top Bar */}
       <Header
         currentSport={currentSport}
@@ -252,8 +253,7 @@ export default function Home() {
       />
 
       {/* Main App Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 overflow-x-hidden">
-        
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 overflow-x-clip">
         {/* Render Tab Content */}
         {activeTab === 'dashboard' && (
           <DashboardOverview
@@ -316,13 +316,6 @@ export default function Home() {
             <span className="text-slate-500">
               Desarrollado por <span className="text-slate-400 font-medium">NelCSC</span>
             </span>
-            <span className="hidden md:inline text-slate-700">·</span>
-            <button
-              onClick={() => setIsArchitectureModalOpen(true)}
-              className="hidden md:inline text-slate-500 hover:text-slate-400 transition-colors"
-            >
-              Arquitectura
-            </button>
           </div>
 
           {/* Social / Contact Icons (Compact & Subtle) */}
@@ -380,11 +373,6 @@ export default function Home() {
         onClose={() => setIsAdminLoginModalOpen(false)}
         onLoginSuccess={handleAdminLoginSuccess}
       />
-
-      {/* Architecture & VS Code Setup Modal */}
-      {isArchitectureModalOpen && (
-        <ArchitectureGuideModal onClose={() => setIsArchitectureModalOpen(false)} />
-      )}
     </div>
   );
 }

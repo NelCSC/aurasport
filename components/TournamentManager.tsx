@@ -33,6 +33,12 @@ interface TournamentManagerProps {
   onSelectTacticalMatch?: (matchId: string) => void;
 }
 
+let matchIdCounter = 0;
+function createNewMatchId(): string {
+  matchIdCounter += 1;
+  return `match-${Date.now().toString(36)}-${matchIdCounter}`;
+}
+
 export const TournamentManager: React.FC<TournamentManagerProps> = ({
   currentSport,
   tournaments,
@@ -46,17 +52,7 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
   onSelectTacticalMatch,
 }) => {
   const sportTournaments = tournaments.filter((t) => t.sport === currentSport);
-  const [selectedTournamentId, setSelectedTournamentId] = useState<string>(
-    sportTournaments[0]?.id || ''
-  );
-
-  React.useEffect(() => {
-    if (!sportTournaments.some((t) => t.id === selectedTournamentId)) {
-      if (sportTournaments[0]) {
-        setSelectedTournamentId(sportTournaments[0].id);
-      }
-    }
-  }, [currentSport, sportTournaments, selectedTournamentId]);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>('');
 
   const currentTournament =
     sportTournaments.find((t) => t.id === selectedTournamentId) || sportTournaments[0];
@@ -84,10 +80,17 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
   const [awayTeamColor, setAwayTeamColor] = useState('#dc2626');
   const [awayPlayerIds, setAwayPlayerIds] = useState<string[]>([]);
 
-  const [matchDate, setMatchDate] = useState('2026-10-10');
+  const getTodayISO = () => new Date().toISOString().split('T')[0];
+  const [matchDate, setMatchDate] = useState(getTodayISO());
   const [matchTime, setMatchTime] = useState('19:00');
   const [matchVenue, setMatchVenue] = useState(currentTournament?.location || 'Complejo Deportivo Central');
   const [matchCourt, setMatchCourt] = useState('Cancha 1');
+
+  const setQuickDate = (daysAhead: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    setMatchDate(d.toISOString().split('T')[0]);
+  };
 
   // New tournament form state
   const [tourName, setTourName] = useState('');
@@ -151,7 +154,7 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
     if (!homeTeamName.trim() || !awayTeamName.trim()) return;
 
     const newMatch: MatchEvent = {
-      id: `match-${Date.now()}`,
+      id: createNewMatchId(),
       tournamentId: currentTournament?.id || 'tour-general',
       eventName: eventName.trim() || 'Encuentro Programado',
       sport: currentSport,
@@ -239,18 +242,19 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
 
       {/* Standings Table Section */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
           <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-base font-bold text-white">Tabla de Posiciones</h3>
+            <Trophy className="w-4 h-4 text-emerald-400 shrink-0" />
+            <h3 className="text-sm sm:text-base font-bold text-white">Tabla de Posiciones</h3>
           </div>
-          <span className="text-xs text-slate-400 font-medium">
-            {currentSport === 'futbol' ? 'Fútbol: 3 pts Victoria · 1 pt Empate' : 'Vóley: Sets y Puntos FIVB'}
-          </span>
+          <div className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-400 font-medium">
+            <span>{currentSport === 'futbol' ? 'Fútbol: 3 pts Victoria · 1 pt Empate' : 'Vóley: Sets y Puntos FIVB'}</span>
+            <span className="sm:hidden text-emerald-400 font-normal">(Desliza →)</span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow-lg">
-          <table className="w-full text-left text-xs sm:text-sm">
+        <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow-lg">
+          <table className="w-full min-w-[540px] text-left text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/80 text-slate-400 text-[11px] uppercase tracking-wider font-semibold">
                 <th className="py-3 px-3 sm:px-4 text-center w-12">#</th>
@@ -366,46 +370,46 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
             return (
               <div
                 key={match.id}
-                className="group flex flex-col p-4 rounded-xl border border-slate-800 bg-slate-900/80 hover:border-slate-700 transition-all shadow-md space-y-3"
+                className="group flex flex-col p-3.5 sm:p-4 rounded-xl border border-slate-800 bg-slate-900/80 hover:border-slate-700 transition-all shadow-md space-y-3"
               >
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4">
                   {/* Date & Location column */}
-                  <div className="flex items-center gap-3 text-xs text-slate-400 min-w-[160px]">
+                  <div className="flex items-center gap-2.5 sm:gap-3 text-xs text-slate-400 w-full md:w-auto min-w-0">
                     <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-center shrink-0">
                       <span className="block font-bold text-white capitalize">{formattedDate}</span>
                       <span className="block font-mono text-[11px] text-emerald-400">{formattedTime}</span>
                     </div>
-                    <div>
-                      <p className="font-bold text-white text-xs sm:text-sm">{match.eventName || 'Encuentro Programado'}</p>
-                      <p className="text-[11px] text-slate-400 truncate max-w-[150px]">{match.venue} ({match.courtNumber || 'Cancha 1'})</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-white text-xs sm:text-sm truncate">{match.eventName || 'Encuentro Programado'}</p>
+                      <p className="text-[11px] text-slate-400 truncate max-w-[200px]">{match.venue} ({match.courtNumber || 'Cancha 1'})</p>
                     </div>
                   </div>
 
                   {/* Teams & Score Box */}
-                  <div className="flex-1 flex items-center justify-center gap-3 sm:gap-6 w-full md:w-auto">
+                  <div className="flex-1 flex items-center justify-between sm:justify-center gap-2 sm:gap-6 w-full md:w-auto min-w-0">
                     {/* Home Team */}
                     <div className="flex items-center gap-2 justify-end text-right flex-1 min-w-0">
-                      <div>
-                        <span className="font-bold text-white text-xs sm:text-sm truncate block">{match.homeTeamName}</span>
+                      <div className="min-w-0">
+                        <span className="font-bold text-white text-xs sm:text-sm truncate block max-w-[95px] sm:max-w-[150px]">{match.homeTeamName}</span>
                         <span className="text-[10px] text-slate-400">{homePlayers.length} Convocados</span>
                       </div>
-                      <span className="text-2xl shrink-0">{match.homeTeamLogo}</span>
+                      <span className="text-xl sm:text-2xl shrink-0">{match.homeTeamLogo}</span>
                     </div>
 
                     {/* Score / VS Display */}
-                    <div className="px-3.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center min-w-[70px]">
+                    <div className="px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center shrink-0 min-w-[56px] sm:min-w-[70px]">
                       {isFinished && match.score ? (
                         match.sport === 'futbol' ? (
-                          <div className="font-mono text-sm sm:text-base font-black text-white tabular-nums">
+                          <div className="font-mono text-xs sm:text-base font-black text-white tabular-nums">
                             {match.score.homeGoals} - {match.score.awayGoals}
                           </div>
                         ) : (
-                          <div className="font-mono text-sm sm:text-base font-black text-purple-400 tabular-nums">
+                          <div className="font-mono text-xs sm:text-base font-black text-purple-400 tabular-nums">
                             {match.score.homeSets} - {match.score.awaySets}
                           </div>
                         )
                       ) : isLive ? (
-                        <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest animate-pulse">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-red-400 uppercase tracking-widest animate-pulse">
                           EN VIVO
                         </span>
                       ) : (
@@ -415,9 +419,9 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
 
                     {/* Away Team */}
                     <div className="flex items-center gap-2 text-left flex-1 min-w-0">
-                      <span className="text-2xl shrink-0">{match.awayTeamLogo}</span>
-                      <div>
-                        <span className="font-bold text-white text-xs sm:text-sm truncate block">{match.awayTeamName}</span>
+                      <span className="text-xl sm:text-2xl shrink-0">{match.awayTeamLogo}</span>
+                      <div className="min-w-0">
+                        <span className="font-bold text-white text-xs sm:text-sm truncate block max-w-[95px] sm:max-w-[150px]">{match.awayTeamName}</span>
                         <span className="text-[10px] text-slate-400">{awayPlayers.length} Convocados</span>
                       </div>
                     </div>
@@ -654,50 +658,111 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
                 </div>
               </div>
 
-              {/* Date, Time & Venue */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Fecha del Partido *</label>
-                  <input
-                    type="date"
-                    required
-                    value={matchDate}
-                    onChange={(e) => setMatchDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-xs"
-                  />
+              {/* Date, Time & Venue - Mobile Optimized */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Match Date */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-bold text-xs flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Fecha del Partido *</span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setQuickDate(0)}
+                        className="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold"
+                      >
+                        Hoy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQuickDate(1)}
+                        className="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+                      >
+                        Mañana
+                      </button>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      required
+                      value={matchDate}
+                      onChange={(e) => setMatchDate(e.target.value)}
+                      onClick={(e) => {
+                        try {
+                          (e.currentTarget as any).showPicker?.();
+                        } catch (_) {}
+                      }}
+                      style={{ colorScheme: 'dark' }}
+                      className="w-full min-h-[44px] h-11 bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-inner"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Hora del Encuentro *</label>
-                  <input
-                    type="time"
-                    required
-                    value={matchTime}
-                    onChange={(e) => setMatchTime(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-xs"
-                  />
+
+                {/* Match Time */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-bold text-xs flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Hora del Encuentro *</span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      {['18:00', '19:00', '20:00', '21:00'].map((timePreset) => (
+                        <button
+                          key={timePreset}
+                          type="button"
+                          onClick={() => setMatchTime(timePreset)}
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold ${
+                            matchTime === timePreset
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {timePreset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      required
+                      value={matchTime}
+                      onChange={(e) => setMatchTime(e.target.value)}
+                      onClick={(e) => {
+                        try {
+                          (e.currentTarget as any).showPicker?.();
+                        } catch (_) {}
+                      }}
+                      style={{ colorScheme: 'dark' }}
+                      className="w-full min-h-[44px] h-11 bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-inner"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Lugar / Cancha *</label>
+                  <label className="block text-slate-300 font-medium mb-1 text-xs">Lugar / Cancha *</label>
                   <input
                     type="text"
                     required
                     value={matchVenue}
                     onChange={(e) => setMatchVenue(e.target.value)}
                     placeholder="Complejo Polideportivo Monumental"
-                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-xs"
+                    className="w-full min-h-[42px] bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Sector / Cancha Específica</label>
+                  <label className="block text-slate-300 font-medium mb-1 text-xs">Sector / Cancha Específica</label>
                   <input
                     type="text"
                     value={matchCourt}
                     onChange={(e) => setMatchCourt(e.target.value)}
                     placeholder="Cancha 1 (Techada / Césped)"
-                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-xs"
+                    className="w-full min-h-[42px] bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
               </div>
