@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { SportType, UserRole } from '@/types/sports';
-import { Shield, Trophy, Users, LayoutDashboard, Compass, Activity, LogOut, KeyRound } from 'lucide-react';
+import { Shield, Trophy, Users, LayoutDashboard, Compass, Activity, LogOut, KeyRound, Cloud, RefreshCw } from 'lucide-react';
+import { SyncStatus } from '@/lib/syncManager';
 
 interface HeaderProps {
   currentSport: SportType;
@@ -13,6 +14,9 @@ interface HeaderProps {
   onLogoutAdmin: () => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  syncStatus?: SyncStatus;
+  onOpenSyncModal?: () => void;
+  onForceSync?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +28,9 @@ export const Header: React.FC<HeaderProps> = ({
   onLogoutAdmin,
   activeTab,
   onTabChange,
+  syncStatus = 'synced',
+  onOpenSyncModal,
+  onForceSync,
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -97,6 +104,30 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Vóley</span>
             </button>
           </div>
+
+          {/* Cloud Real-Time Sync Indicator */}
+          <button
+            onClick={onOpenSyncModal}
+            title="Sincronización en tiempo real (Móvil y PC). Clic para ver estado o forzar actualización."
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800/90 hover:border-slate-700 text-slate-300 hover:text-white transition-all text-xs active:scale-[0.98]"
+          >
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  syncStatus === 'syncing' ? 'bg-amber-400' : 'bg-emerald-400'
+                }`}
+              />
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  syncStatus === 'syncing' ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}
+              />
+            </span>
+            <Cloud className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="hidden lg:inline text-[11px] font-semibold text-emerald-300">
+              {syncStatus === 'syncing' ? 'Sincronizando' : 'Nube Viva'}
+            </span>
+          </button>
 
           {/* Secure Role Management (Admin Login vs Public Spectator) */}
           {userRole === 'admin' ? (

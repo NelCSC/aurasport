@@ -14,6 +14,14 @@ import { PlayerRosterManager } from '@/components/PlayerRosterManager';
 import { TournamentManager } from '@/components/TournamentManager';
 import { MatchResultRecorderModal } from '@/components/MatchResultRecorderModal';
 import { AdminLoginModal } from '@/components/AdminLoginModal';
+import { SyncInfoModal } from '@/components/SyncInfoModal';
+import {
+  fetchGlobalCloudState,
+  pushGlobalCloudState,
+  subscribeToRealtimeSync,
+  SyncStatus,
+  AppSyncData,
+} from '@/lib/syncManager';
 import { MessageCircle, Facebook, Mail } from 'lucide-react';
 
 export default function Home() {
@@ -23,6 +31,13 @@ export default function Home() {
   const [adminEmail, setAdminEmail] = useState<string>('admin@aurasport.com');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedTacticalMatchId, setSelectedTacticalMatchId] = useState<string | null>(null);
+
+  // Multi-Device Cloud Real-time Sync States
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [lastSyncTimestamp, setLastSyncTimestamp] = useState<number>(0);
+  const lastSyncTimestampRef = React.useRef<number>(0);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   // Master Data States
   const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
@@ -40,9 +55,12 @@ export default function Home() {
     setActiveTab('tactical');
   };
 
-  // Local storage persistence & admin session check
+  // 1. Initial Local Cache Load & Multi-Device Cloud Real-Time Sync
   useEffect(() => {
-    const timer = setTimeout(() => {
+    let isMounted = true;
+
+    // Load local storage cache asynchronously to avoid synchronous effect setState warnings
+    const initTimer = setTimeout(() => {
       try {
         const savedPlayers = localStorage.getItem('sportmaster_players_pool');
         const savedTournaments = localStorage.getItem('sportmaster_tournaments_pool');
@@ -64,7 +82,74 @@ export default function Home() {
         console.warn('Could not load from localStorage:', e);
       }
     }, 0);
-    return () => clearTimeout(timer);
+
+    // Connect to Cloud API to sync Mobile & Desktop
+    const syncFromCloud = async () => {
+      setSyncStatus('syncing');
+      try {
+        const cloudData = await fetchGlobalCloudState();
+        if (isMounted && cloudData) {
+          if (Array.isArray(cloudData.tournaments) && cloudData.tournaments.length > 0) {
+            setTournaments(cloudData.tournaments);
+            localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(cloudData.tournaments));
+          }
+          if (Array.isArray(cloudData.matches) && cloudData.matches.length > 0) {
+            setMatches(cloudData.matches);
+            localStorage.setItem('sportmaster_matches_pool', JSON.stringify(cloudData.matches));
+          }
+          if (Array.isArray(cloudData.players) && cloudData.players.length > 0) {
+            setPlayers(cloudData.players);
+            localStorage.setItem('sportmaster_players_pool', JSON.stringify(cloudData.players));
+          }
+          if (cloudData.lastUpdated) {
+            lastSyncTimestampRef.current = cloudData.lastUpdated;
+            setLastSyncTimestamp(cloudData.lastUpdated);
+          }
+          setLastSyncTime(new Date());
+          setSyncStatus('synced');
+        } else {
+          setSyncStatus('synced');
+        }
+      } catch (err) {
+        console.warn('Initial cloud sync error:', err);
+        setSyncStatus('idle');
+      }
+    };
+
+    syncFromCloud();
+
+    // Subscribe to real-time events across devices & tabs
+    const unsubscribe = subscribeToRealtimeSync(
+      (updatedData: AppSyncData) => {
+        if (!isMounted) return;
+        setSyncStatus('syncing');
+        if (Array.isArray(updatedData.tournaments) && updatedData.tournaments.length > 0) {
+          setTournaments(updatedData.tournaments);
+          localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(updatedData.tournaments));
+        }
+        if (Array.isArray(updatedData.matches) && updatedData.matches.length > 0) {
+          setMatches(updatedData.matches);
+          localStorage.setItem('sportmaster_matches_pool', JSON.stringify(updatedData.matches));
+        }
+        if (Array.isArray(updatedData.players) && updatedData.players.length > 0) {
+          setPlayers(updatedData.players);
+          localStorage.setItem('sportmaster_players_pool', JSON.stringify(updatedData.players));
+        }
+        if (updatedData.lastUpdated) {
+          lastSyncTimestampRef.current = updatedData.lastUpdated;
+          setLastSyncTimestamp(updatedData.lastUpdated);
+        }
+        setLastSyncTime(new Date());
+        setSyncStatus('synced');
+      },
+      () => lastSyncTimestampRef.current
+    );
+
+    return () => {
+      isMounted = false;
+      clearTimeout(initTimer);
+      unsubscribe();
+    };
   }, []);
 
   const handleAdminLoginSuccess = (email: string) => {
@@ -93,6 +178,48 @@ export default function Home() {
         localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(newTournaments));
     } catch (e) {
       console.warn('Could not save to localStorage:', e);
+    }
+
+    // Automatically push updates to Cloud server so Mobile & PC stay in sync
+    setSyncStatus('syncing');
+    const now = Date.now();
+    setLastSyncTimestamp(now);
+    setLastSyncTime(new Date());
+
+    pushGlobalCloudState({
+      players: newPlayers || players,
+      matches: newMatches || matches,
+      tournaments: newTournaments || tournaments,
+    }).then((ok) => {
+      setSyncStatus(ok ? 'synced' : 'idle');
+    });
+  };
+
+  const handleForceSync = async () => {
+    setSyncStatus('syncing');
+    try {
+      const cloudData = await fetchGlobalCloudState();
+      if (cloudData) {
+        if (Array.isArray(cloudData.tournaments) && cloudData.tournaments.length > 0) {
+          setTournaments(cloudData.tournaments);
+          localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(cloudData.tournaments));
+        }
+        if (Array.isArray(cloudData.matches) && cloudData.matches.length > 0) {
+          setMatches(cloudData.matches);
+          localStorage.setItem('sportmaster_matches_pool', JSON.stringify(cloudData.matches));
+        }
+        if (Array.isArray(cloudData.players) && cloudData.players.length > 0) {
+          setPlayers(cloudData.players);
+          localStorage.setItem('sportmaster_players_pool', JSON.stringify(cloudData.players));
+        }
+        if (cloudData.lastUpdated) {
+          setLastSyncTimestamp(cloudData.lastUpdated);
+        }
+        setLastSyncTime(new Date());
+      }
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('idle');
     }
   };
 
@@ -250,6 +377,9 @@ export default function Home() {
         onLogoutAdmin={handleAdminLogout}
         activeTab={activeTab}
         onTabChange={(t) => setActiveTab(t)}
+        syncStatus={syncStatus}
+        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onForceSync={handleForceSync}
       />
 
       {/* Main App Container */}
@@ -372,6 +502,18 @@ export default function Home() {
         isOpen={isAdminLoginModalOpen}
         onClose={() => setIsAdminLoginModalOpen(false)}
         onLoginSuccess={handleAdminLoginSuccess}
+      />
+
+      {/* Multi-Device Cloud Real-Time Sync Modal */}
+      <SyncInfoModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        syncStatus={syncStatus}
+        lastSyncTime={lastSyncTime}
+        tournamentsCount={tournaments.length}
+        matchesCount={matches.length}
+        playersCount={players.length}
+        onForceSync={handleForceSync}
       />
     </div>
   );
