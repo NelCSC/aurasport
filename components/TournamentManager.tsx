@@ -28,8 +28,11 @@ interface TournamentManagerProps {
   userRole: UserRole;
   onRecordResult: (match: MatchEvent) => void;
   onAddMatch: (match: MatchEvent) => void;
-  onAddTournament: (tournament: Tournament) => void;
+  onUpdateMatch?: (match: MatchEvent) => void;
   onDeleteMatch?: (matchId: string) => void;
+  onAddTournament: (tournament: Tournament) => void;
+  onUpdateTournament?: (tournament: Tournament) => void;
+  onDeleteTournament?: (tournamentId: string) => void;
   onSelectTacticalMatch?: (matchId: string) => void;
 }
 
@@ -47,8 +50,11 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
   userRole,
   onRecordResult,
   onAddMatch,
-  onAddTournament,
+  onUpdateMatch,
   onDeleteMatch,
+  onAddTournament,
+  onUpdateTournament,
+  onDeleteTournament,
   onSelectTacticalMatch,
 }) => {
   const sportTournaments = tournaments.filter((t) => t.sport === currentSport);
@@ -198,6 +204,170 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
     setIsNewTournamentModalOpen(false);
   };
 
+  // --- EDIT & DELETE TOURNAMENT STATE & HANDLERS ---
+  const [isEditTourModalOpen, setIsEditTourModalOpen] = useState(false);
+  const [editTourId, setEditTourId] = useState('');
+  const [editTourName, setEditTourName] = useState('');
+  const [editTourCategory, setEditTourCategory] = useState<'Libre' | 'Master +35' | 'Femenino' | 'Mixto' | 'Juvenil'>('Libre');
+  const [editTourFormat, setEditTourFormat] = useState<'Liga' | 'Eliminatoria Directa' | 'Fase de Grupos' | 'Amistoso / Pichanga'>('Liga');
+  const [editTourStatus, setEditTourStatus] = useState<'active' | 'upcoming' | 'completed'>('active');
+  const [editTourStartDate, setEditTourStartDate] = useState('2026-10-15');
+  const [editTourEndDate, setEditTourEndDate] = useState('2026-12-20');
+  const [editTourLocation, setEditTourLocation] = useState('Centro Polideportivo');
+  const [editTourDesc, setEditTourDesc] = useState('');
+  const [tourToDelete, setTourToDelete] = useState<Tournament | null>(null);
+
+  const openEditTourModal = (tour: Tournament) => {
+    setEditTourId(tour.id);
+    setEditTourName(tour.name);
+    setEditTourCategory(tour.category);
+    setEditTourFormat(tour.format);
+    setEditTourStatus(tour.status);
+    setEditTourStartDate(tour.startDate || '2026-10-15');
+    setEditTourEndDate(tour.endDate || '2026-12-20');
+    setEditTourLocation(tour.location || 'Centro Polideportivo');
+    setEditTourDesc(tour.description || '');
+    setIsEditTourModalOpen(true);
+  };
+
+  const handleSaveEditTournament = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTourName.trim()) return;
+
+    const updatedTour: Tournament = {
+      id: editTourId,
+      name: editTourName.trim(),
+      sport: currentSport,
+      category: editTourCategory,
+      format: editTourFormat,
+      status: editTourStatus,
+      startDate: editTourStartDate,
+      endDate: editTourEndDate,
+      location: editTourLocation.trim(),
+      description: editTourDesc.trim(),
+    };
+
+    if (onUpdateTournament) {
+      onUpdateTournament(updatedTour);
+    }
+    setIsEditTourModalOpen(false);
+  };
+
+  const handleConfirmDeleteTournament = () => {
+    if (!tourToDelete) return;
+    if (onDeleteTournament) {
+      onDeleteTournament(tourToDelete.id);
+    }
+    setTourToDelete(null);
+  };
+
+  // --- EDIT & DELETE MATCH STATE & HANDLERS ---
+  const [isEditMatchModalOpen, setIsEditMatchModalOpen] = useState(false);
+  const [editMatchId, setEditMatchId] = useState('');
+  const [editEventName, setEditEventName] = useState('');
+  const [editHomeTeamName, setEditHomeTeamName] = useState('');
+  const [editHomeTeamLogo, setEditHomeTeamLogo] = useState('🛡️');
+  const [editHomeTeamColor, setEditHomeTeamColor] = useState('#2563eb');
+  const [editHomePlayerIds, setEditHomePlayerIds] = useState<string[]>([]);
+  const [editAwayTeamName, setEditAwayTeamName] = useState('');
+  const [editAwayTeamLogo, setEditAwayTeamLogo] = useState('⚡');
+  const [editAwayTeamColor, setEditAwayTeamColor] = useState('#dc2626');
+  const [editAwayPlayerIds, setEditAwayPlayerIds] = useState<string[]>([]);
+  const [editMatchDate, setEditMatchDate] = useState(getTodayISO());
+  const [editMatchTime, setEditMatchTime] = useState('19:00');
+  const [editMatchVenue, setEditMatchVenue] = useState('');
+  const [editMatchCourt, setEditMatchCourt] = useState('Cancha 1');
+  const [editMatchStatus, setEditMatchStatus] = useState<MatchEvent['status']>('scheduled');
+  const [matchToDelete, setMatchToDelete] = useState<MatchEvent | null>(null);
+
+  const openEditMatchModal = (match: MatchEvent) => {
+    setEditMatchId(match.id);
+    setEditEventName(match.eventName || 'Encuentro Programado');
+    setEditHomeTeamName(match.homeTeamName);
+    setEditHomeTeamLogo(match.homeTeamLogo || '🛡️');
+    setEditHomeTeamColor(match.homeTeamColor || '#2563eb');
+    setEditHomePlayerIds(match.homePlayerIds || []);
+    setEditAwayTeamName(match.awayTeamName);
+    setEditAwayTeamLogo(match.awayTeamLogo || '⚡');
+    setEditAwayTeamColor(match.awayTeamColor || '#dc2626');
+    setEditAwayPlayerIds(match.awayPlayerIds || []);
+
+    const mDate = match.dateTime.includes('T') ? match.dateTime.split('T')[0] : getTodayISO();
+    const mTime = match.dateTime.includes('T') ? match.dateTime.split('T')[1].substring(0, 5) : '19:00';
+    setEditMatchDate(mDate);
+    setEditMatchTime(mTime);
+    setEditMatchVenue(match.venue || 'Complejo Deportivo Central');
+    setEditMatchCourt(match.courtNumber || 'Cancha 1');
+    setEditMatchStatus(match.status);
+    setIsEditMatchModalOpen(true);
+  };
+
+  const handleAutoBalanceEdit = () => {
+    const pool = [...availableSportPlayers].sort((a, b) => b.skillRating - a.skillRating);
+    const teamA: string[] = [];
+    const teamB: string[] = [];
+    pool.forEach((player, idx) => {
+      if (idx % 2 === 0) teamA.push(player.id);
+      else teamB.push(player.id);
+    });
+    setEditHomePlayerIds(teamA);
+    setEditAwayPlayerIds(teamB);
+  };
+
+  const togglePlayerAssignmentEdit = (playerId: string, targetTeam: 'home' | 'away') => {
+    if (targetTeam === 'home') {
+      if (editHomePlayerIds.includes(playerId)) {
+        setEditHomePlayerIds(editHomePlayerIds.filter((id) => id !== playerId));
+      } else {
+        setEditHomePlayerIds([...editHomePlayerIds, playerId]);
+        setEditAwayPlayerIds(editAwayPlayerIds.filter((id) => id !== playerId));
+      }
+    } else {
+      if (editAwayPlayerIds.includes(playerId)) {
+        setEditAwayPlayerIds(editAwayPlayerIds.filter((id) => id !== playerId));
+      } else {
+        setEditAwayPlayerIds([...editAwayPlayerIds, playerId]);
+        setEditHomePlayerIds(editHomePlayerIds.filter((id) => id !== playerId));
+      }
+    }
+  };
+
+  const handleSaveEditMatch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const existing = matches.find((m) => m.id === editMatchId);
+    if (!existing) return;
+
+    const updatedMatch: MatchEvent = {
+      ...existing,
+      eventName: editEventName.trim() || 'Encuentro Programado',
+      homeTeamName: editHomeTeamName.trim() || 'Equipo A',
+      homeTeamLogo: editHomeTeamLogo,
+      homeTeamColor: editHomeTeamColor,
+      homePlayerIds: editHomePlayerIds,
+      awayTeamName: editAwayTeamName.trim() || 'Equipo B',
+      awayTeamLogo: editAwayTeamLogo,
+      awayTeamColor: editAwayTeamColor,
+      awayPlayerIds: editAwayPlayerIds,
+      dateTime: `${editMatchDate}T${editMatchTime}:00.000Z`,
+      venue: editMatchVenue.trim(),
+      courtNumber: editMatchCourt.trim(),
+      status: editMatchStatus,
+    };
+
+    if (onUpdateMatch) {
+      onUpdateMatch(updatedMatch);
+    }
+    setIsEditMatchModalOpen(false);
+  };
+
+  const handleConfirmDeleteMatch = () => {
+    if (!matchToDelete) return;
+    if (onDeleteMatch) {
+      onDeleteMatch(matchToDelete.id);
+    }
+    setMatchToDelete(null);
+  };
+
   return (
     <div className="space-y-8">
       {/* Top Header & Tournaments Selector */}
@@ -221,13 +391,35 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
         </div>
 
         {userRole === 'admin' && (
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+            {currentTournament && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openEditTourModal(currentTournament)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg border border-amber-500/30 transition-colors shadow-sm"
+                  title="Editar nombre, formato, sede o fechas del torneo seleccionado"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Editar Torneo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTourToDelete(currentTournament)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 rounded-lg border border-red-600/30 transition-colors shadow-sm"
+                  title="Eliminar este torneo y desvincular sus encuentros"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  <span className="hidden sm:inline">Eliminar</span>
+                </button>
+              </>
+            )}
             <button
               onClick={openScheduleMatchModal}
               className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Programar Encuentro & Armar Equipos</span>
+              <span>Programar Encuentro</span>
             </button>
             <button
               onClick={() => setIsNewTournamentModalOpen(true)}
@@ -439,13 +631,32 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
                     </button>
 
                     {userRole === 'admin' && (
-                      <button
-                        onClick={() => onRecordResult(match)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>{isFinished ? 'Modificar Acta' : 'Cargar Resultado'}</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => onRecordResult(match)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors"
+                          title="Cargar marcador o modificar goles/sets"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{isFinished ? 'Modificar Acta' : 'Cargar Resultado'}</span>
+                        </button>
+                        <button
+                          onClick={() => openEditMatchModal(match)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 rounded-lg border border-amber-600/40 transition-colors"
+                          title="Editar detalles del encuentro, fecha, hora, cancha y equipos"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Editar</span>
+                        </button>
+                        <button
+                          onClick={() => setMatchToDelete(match)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold bg-red-950/40 hover:bg-red-900/50 text-red-400 hover:text-red-300 rounded-lg border border-red-600/40 transition-colors"
+                          title="Eliminar este encuentro deportivo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          <span className="hidden sm:inline">Eliminar</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -870,6 +1081,523 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- EDIT TOURNAMENT MODAL --- */}
+      {isEditTourModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-amber-400" />
+                <h3 className="text-base font-bold text-white">Editar Torneo / Liga</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditTourModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTournament} className="space-y-4 text-xs sm:text-sm">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Nombre del Torneo *</label>
+                <input
+                  type="text"
+                  required
+                  value={editTourName}
+                  onChange={(e) => setEditTourName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Categoría</label>
+                  <select
+                    value={editTourCategory}
+                    onChange={(e) => setEditTourCategory(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 text-xs"
+                  >
+                    <option value="Libre">Libre</option>
+                    <option value="Master +35">Master +35</option>
+                    <option value="Femenino">Femenino</option>
+                    <option value="Mixto">Mixto</option>
+                    <option value="Juvenil">Juvenil</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Formato</label>
+                  <select
+                    value={editTourFormat}
+                    onChange={(e) => setEditTourFormat(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 text-xs"
+                  >
+                    <option value="Liga">Liga Regular</option>
+                    <option value="Amistoso / Pichanga">Pichangas / Amistosos</option>
+                    <option value="Fase de Grupos">Fase de Grupos</option>
+                    <option value="Eliminatoria Directa">Eliminatoria Directa</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Estado</label>
+                  <select
+                    value={editTourStatus}
+                    onChange={(e) => setEditTourStatus(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 text-xs"
+                  >
+                    <option value="active">En Curso (Activo)</option>
+                    <option value="upcoming">Próximo a Iniciar</option>
+                    <option value="completed">Finalizado</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Sede / Ubicación</label>
+                  <input
+                    type="text"
+                    value={editTourLocation}
+                    onChange={(e) => setEditTourLocation(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Fecha Inicio</label>
+                  <input
+                    type="date"
+                    value={editTourStartDate}
+                    onChange={(e) => setEditTourStartDate(e.target.value)}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Fecha Fin</label>
+                  <input
+                    type="date"
+                    value={editTourEndDate}
+                    onChange={(e) => setEditTourEndDate(e.target.value)}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Descripción / Reglas</label>
+                <textarea
+                  rows={2}
+                  value={editTourDesc}
+                  onChange={(e) => setEditTourDesc(e.target.value)}
+                  placeholder="Detalles de premiación, cupos, etc."
+                  className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2 text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditTourModalOpen(false)}
+                  className="px-4 py-2 text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-sm"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- DELETE TOURNAMENT CONFIRMATION MODAL --- */}
+      {tourToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md bg-slate-900 border border-red-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="w-10 h-10 rounded-xl bg-red-950/60 border border-red-500/40 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Eliminar Torneo / Liga?</h3>
+                <p className="text-xs text-slate-400">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              Estás a punto de eliminar el torneo <strong className="text-white">&quot;{tourToDelete.name}&quot;</strong> ({tourToDelete.category}). Sus partidos asociados dejarán de estar asignados a él.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setTourToDelete(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteTournament}
+                className="px-5 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg transition-all"
+              >
+                Sí, Eliminar Torneo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- EDIT MATCH MODAL --- */}
+      {isEditMatchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">Editar Encuentro Deportivo</h3>
+                  <p className="text-xs text-slate-400">Modifica los equipos, fecha, hora, cancha y convocatoria</p>
+                </div>
+              </div>
+              <button onClick={() => setIsEditMatchModalOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditMatch} className="space-y-5 text-xs sm:text-sm">
+              {/* Event Name & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-slate-300 font-medium mb-1">Nombre / Título del Encuentro *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editEventName}
+                    onChange={(e) => setEditEventName(e.target.value)}
+                    placeholder="Ej. Jornada 2 - Clásico"
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Estado</label>
+                  <select
+                    value={editMatchStatus}
+                    onChange={(e) => setEditMatchStatus(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg p-2.5 text-xs"
+                  >
+                    <option value="scheduled">Programado</option>
+                    <option value="live">En Vivo (Jugándose)</option>
+                    <option value="finished">Finalizado</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Two Teams Configuration Box */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                {/* Team 1 (Home) */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-blue-400" />
+                      <span>Equipo A (Local)</span>
+                    </span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold">{editHomePlayerIds.length} Jugadores</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={editHomeTeamName}
+                      onChange={(e) => setEditHomeTeamName(e.target.value)}
+                      placeholder="Nombre del Equipo A"
+                      className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-xs"
+                    />
+                    <select
+                      value={editHomeTeamLogo}
+                      onChange={(e) => setEditHomeTeamLogo(e.target.value)}
+                      className="w-14 bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-center text-base"
+                    >
+                      <option value="🛡️">🛡️</option>
+                      <option value="⚡">⚡</option>
+                      <option value="🦅">🦅</option>
+                      <option value="🟢">🟢</option>
+                      <option value="🏐">🏐</option>
+                      <option value="💥">💥</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Team 2 (Away) */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-red-400" />
+                      <span>Equipo B (Visitante)</span>
+                    </span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold">{editAwayPlayerIds.length} Jugadores</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={editAwayTeamName}
+                      onChange={(e) => setEditAwayTeamName(e.target.value)}
+                      placeholder="Nombre del Equipo B"
+                      className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-xs"
+                    />
+                    <select
+                      value={editAwayTeamLogo}
+                      onChange={(e) => setEditAwayTeamLogo(e.target.value)}
+                      className="w-14 bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-center text-base"
+                    >
+                      <option value="⚡">⚡</option>
+                      <option value="🛡️">🛡️</option>
+                      <option value="💥">💥</option>
+                      <option value="💠">💠</option>
+                      <option value="🦅">🦅</option>
+                      <option value="🟢">🟢</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Roster Selection & Auto-Balance */}
+              <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="font-bold text-white flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-emerald-400" />
+                      <span>Convocatoria de Jugadores ({currentSport === 'futbol' ? 'Fútbol' : 'Vóley'})</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      Reasigna a cada jugador entre el <strong>Equipo A</strong> y el <strong>Equipo B</strong>
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAutoBalanceEdit}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Auto-Balancear Equipos</span>
+                  </button>
+                </div>
+
+                {/* Players Draft Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                  {availableSportPlayers.map((player) => {
+                    const isHome = editHomePlayerIds.includes(player.id);
+                    const isAway = editAwayPlayerIds.includes(player.id);
+
+                    return (
+                      <div
+                        key={player.id}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs transition-all ${
+                          isHome
+                            ? 'bg-blue-950/50 border-blue-600/60 text-white'
+                            : isAway
+                            ? 'bg-red-950/50 border-red-600/60 text-white'
+                            : 'bg-slate-900/80 border-slate-800 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="font-bold text-white truncate">{player.name}</span>
+                          <span className="text-[10px] text-slate-400 truncate">({player.position.split(' ')[0]})</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => togglePlayerAssignmentEdit(player.id, 'home')}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                              isHome
+                                ? 'bg-blue-600 text-white shadow'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            Eq. A
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => togglePlayerAssignmentEdit(player.id, 'away')}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                              isAway
+                                ? 'bg-red-600 text-white shadow'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            Eq. B
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Date, Time & Venue */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Match Date */}
+                <div className="space-y-1.5">
+                  <label className="text-slate-300 font-bold text-xs flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Fecha del Partido *</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editMatchDate}
+                    onChange={(e) => setEditMatchDate(e.target.value)}
+                    onClick={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch (_) {}
+                    }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full min-h-[44px] h-11 bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-inner"
+                  />
+                </div>
+
+                {/* Match Time */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-bold text-xs flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Hora del Encuentro *</span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      {['18:00', '19:00', '20:00', '21:00'].map((timePreset) => (
+                        <button
+                          key={timePreset}
+                          type="button"
+                          onClick={() => setEditMatchTime(timePreset)}
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold ${
+                            editMatchTime === timePreset
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {timePreset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <input
+                    type="time"
+                    required
+                    value={editMatchTime}
+                    onChange={(e) => setEditMatchTime(e.target.value)}
+                    onClick={(e) => {
+                      try {
+                        (e.currentTarget as any).showPicker?.();
+                      } catch (_) {}
+                    }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full min-h-[44px] h-11 bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-inner"
+                  />
+                </div>
+              </div>
+
+              {/* Venue & Court */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-slate-300 font-bold text-xs flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Sede / Lugar</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editMatchVenue}
+                    onChange={(e) => setEditMatchVenue(e.target.value)}
+                    className="w-full min-h-[44px] h-11 bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-inner"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-slate-300 font-bold text-xs">Cancha / Campo</label>
+                  <input
+                    type="text"
+                    required
+                    value={editMatchCourt}
+                    onChange={(e) => setEditMatchCourt(e.target.value)}
+                    className="w-full min-h-[44px] h-11 bg-slate-950 border border-slate-700 text-white rounded-xl px-3 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-inner"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditMatchModalOpen(false)}
+                  className="px-4 py-2.5 text-xs text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-xl shadow-lg transition-all"
+                >
+                  Guardar Cambios del Encuentro
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- DELETE MATCH CONFIRMATION MODAL --- */}
+      {matchToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md bg-slate-900 border border-red-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="w-10 h-10 rounded-xl bg-red-950/60 border border-red-500/40 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Eliminar Encuentro Deportivo?</h3>
+                <p className="text-xs text-slate-400">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              Estás a punto de eliminar el partido <strong className="text-white">&quot;{matchToDelete.eventName || 'Encuentro'}&quot;</strong> entre <span className="text-blue-400 font-bold">{matchToDelete.homeTeamName}</span> y <span className="text-red-400 font-bold">{matchToDelete.awayTeamName}</span>.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setMatchToDelete(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteMatch}
+                className="px-5 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg transition-all"
+              >
+                Sí, Eliminar Encuentro
+              </button>
+            </div>
           </div>
         </div>
       )}

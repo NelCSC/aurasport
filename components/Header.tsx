@@ -2,8 +2,20 @@
 
 import React from 'react';
 import { SportType, UserRole } from '@/types/sports';
-import { Shield, Trophy, Users, LayoutDashboard, Compass, Activity, LogOut, KeyRound, Cloud, RefreshCw } from 'lucide-react';
-import { SyncStatus } from '@/lib/syncManager';
+import {
+  Shield,
+  Trophy,
+  Users,
+  LayoutDashboard,
+  Compass,
+  Activity,
+  LogOut,
+  KeyRound,
+  Layers,
+  ChevronDown,
+  Share2,
+} from 'lucide-react';
+import { getSpaceDisplayName } from '@/lib/spaceManager';
 
 interface HeaderProps {
   currentSport: SportType;
@@ -14,9 +26,8 @@ interface HeaderProps {
   onLogoutAdmin: () => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
-  syncStatus?: SyncStatus;
-  onOpenSyncModal?: () => void;
-  onForceSync?: () => void;
+  activeSpaceId?: string;
+  onOpenSpaceSelector?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,9 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
   onLogoutAdmin,
   activeTab,
   onTabChange,
-  syncStatus = 'synced',
-  onOpenSyncModal,
-  onForceSync,
+  activeSpaceId = 'global_state',
+  onOpenSpaceSelector,
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -39,24 +49,48 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'tournaments', label: 'Torneos & Fixture', icon: Trophy },
   ];
 
+  const spaceName = getSpaceDisplayName(activeSpaceId, adminEmail);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/95 backdrop-blur-md shadow-lg shadow-black/40">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-15 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Zone 1: Wordmark brand */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900 to-emerald-950/40 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold shadow-md shadow-emerald-950/50 shrink-0">
+      {/* Primary Top Bar */}
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-4">
+        {/* Left Section: Wordmark Brand & Active Space Pill */}
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
+          {/* Brand Icon */}
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900 to-emerald-950/40 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold shadow-sm shrink-0">
             <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
           </div>
+
+          {/* Brand Name */}
           <div className="flex flex-col min-w-0">
-            <span className="text-sm sm:text-lg font-bold tracking-tight text-white flex items-center gap-1.5 sm:gap-2 truncate">
-              AuraSport <span className="text-emerald-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/50 shrink-0">PRO</span>
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <span className="text-xs sm:text-base font-bold tracking-tight text-white truncate">
+                AuraSport
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 shrink-0">
+                PRO
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium hidden lg:inline truncate">
+              Gestión Integral Fútbol & Vóley
             </span>
-            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline truncate">Gestión Integral Fútbol & Vóley</span>
           </div>
+
+          {/* Active Space / League Badge (Clickable to switch or share) */}
+          <button
+            onClick={onOpenSpaceSelector}
+            title="Espacio actual de Liga / Torneos. Clic para cambiar o compartir con seguidores."
+            className="flex items-center gap-1 px-1.5 sm:px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all text-[11px] font-medium min-w-0 max-w-[120px] sm:max-w-[190px] shrink truncate"
+          >
+            <Layers className="w-3 h-3 text-emerald-400 shrink-0" />
+            <span className="truncate">{spaceName}</span>
+            <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
+          </button>
         </div>
 
-        {/* Zone 2: Navigation links */}
-        <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+        {/* Center Section: Desktop Navigation Links */}
+        <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 shrink-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -64,86 +98,76 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex items-center gap-2 px-3 py-2 text-xs lg:text-sm font-medium rounded-lg transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                   isActive
                     ? 'bg-slate-800 text-emerald-400 border border-slate-700 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/80'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span className="whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Zone 3: Controls & Primary Actions */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Sport Selector Tabs */}
-          <div className="flex items-center p-1 bg-slate-900 border border-slate-800 rounded-lg">
+        {/* Right Section: Sport Switcher & Admin Auth Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Sport Switcher Segmented Control */}
+          <div className="flex items-center p-0.5 sm:p-1 bg-slate-900 border border-slate-800 rounded-lg shrink-0">
             <button
               onClick={() => onSportChange('futbol')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+              title="Modo Fútbol"
+              className={`flex items-center gap-1 px-1.5 sm:px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                 currentSport === 'futbol'
                   ? 'bg-emerald-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <span>⚽</span>
+              <span className="text-xs">⚽</span>
               <span className="hidden sm:inline">Fútbol</span>
             </button>
             <button
               onClick={() => onSportChange('voley')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+              title="Modo Vóley"
+              className={`flex items-center gap-1 px-1.5 sm:px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                 currentSport === 'voley'
                   ? 'bg-purple-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <span>🏐</span>
+              <span className="text-xs">🏐</span>
               <span className="hidden sm:inline">Vóley</span>
             </button>
           </div>
 
-          {/* Cloud Real-Time Sync Indicator */}
+          {/* Quick Share Link button for current space */}
           <button
-            onClick={onOpenSyncModal}
-            title="Sincronización en tiempo real (Móvil y PC). Clic para ver estado o forzar actualización."
-            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800/90 hover:border-slate-700 text-slate-300 hover:text-white transition-all text-xs active:scale-[0.98]"
+            onClick={onOpenSpaceSelector}
+            title="Compartir enlace de esta Liga con seguidores o jugadores"
+            className="hidden sm:flex items-center gap-1 p-1.5 sm:px-2 sm:py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-emerald-400 transition-colors text-xs shrink-0"
           >
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  syncStatus === 'syncing' ? 'bg-amber-400' : 'bg-emerald-400'
-                }`}
-              />
-              <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${
-                  syncStatus === 'syncing' ? 'bg-amber-500' : 'bg-emerald-500'
-                }`}
-              />
-            </span>
-            <Cloud className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="hidden lg:inline text-[11px] font-semibold text-emerald-300">
-              {syncStatus === 'syncing' ? 'Sincronizando' : 'Nube Viva'}
-            </span>
+            <Share2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="hidden md:inline text-[11px] font-medium">Compartir</span>
           </button>
 
-          {/* Secure Role Management (Admin Login vs Public Spectator) */}
+          {/* Admin Role Management (Logged-in Badge vs Public Spectator Login) */}
           {userRole === 'admin' ? (
-            <div className="flex items-center gap-1 sm:gap-1.5 bg-amber-950/40 border border-amber-600/50 p-1 rounded-lg">
+            <div className="flex items-center gap-1 bg-amber-950/40 border border-amber-600/50 p-1 rounded-lg shrink-0">
               <div
-                title={`Sesión iniciada como ${adminEmail}`}
-                className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-bold text-amber-300"
+                title={`Sesión activa: ${adminEmail}`}
+                className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-bold text-amber-300"
               >
                 <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="hidden sm:inline max-w-[100px] truncate">{adminEmail.split('@')[0]}</span>
-                <span className="sm:hidden text-[11px]">Admin</span>
+                <span className="hidden sm:inline max-w-[80px] md:max-w-[110px] truncate text-[11px]">
+                  {adminEmail.split('@')[0]}
+                </span>
+                <span className="sm:hidden text-[10px]">Admin</span>
               </div>
               <button
                 onClick={onLogoutAdmin}
                 title="Cerrar sesión de administrador"
-                className="p-1 hover:bg-amber-900/60 text-amber-400 hover:text-white rounded transition-colors"
+                className="p-1 hover:bg-amber-900/60 text-amber-400 hover:text-white rounded transition-colors shrink-0"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -151,19 +175,19 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <button
               onClick={onOpenAdminLogin}
-              title="Iniciar sesión como Administrador"
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm transition-all active:scale-[0.98]"
+              title="Iniciar sesión con tu cuenta de Supabase"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm transition-all shrink-0 active:scale-95"
             >
               <KeyRound className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline whitespace-nowrap">Acceso Admin</span>
+              <span className="hidden sm:inline whitespace-nowrap text-xs">Acceso Admin</span>
               <span className="sm:hidden whitespace-nowrap text-[11px]">Admin</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Mobile sub-navigation bar */}
-      <div className="flex md:hidden border-t border-slate-800/80 bg-slate-950 px-2 py-1.5 overflow-x-auto gap-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      {/* Mobile & Tablet Navigation Bar (smooth scrolling tabs) */}
+      <div className="flex lg:hidden border-t border-slate-800/80 bg-slate-950 px-2 py-1.5 overflow-x-auto gap-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -171,9 +195,9 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               key={item.id}
               onClick={() => onTabChange(item.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap transition-colors shrink-0 ${
                 isActive
-                  ? 'bg-slate-800 text-emerald-400'
+                  ? 'bg-slate-800 text-emerald-400 border border-slate-700/80'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SportType, UserRole, Player, Tournament, MatchEvent, TacticalSlot } from '@/types/sports';
 import {
   INITIAL_TOURNAMENTS,
@@ -14,7 +14,7 @@ import { PlayerRosterManager } from '@/components/PlayerRosterManager';
 import { TournamentManager } from '@/components/TournamentManager';
 import { MatchResultRecorderModal } from '@/components/MatchResultRecorderModal';
 import { AdminLoginModal } from '@/components/AdminLoginModal';
-import { SyncInfoModal } from '@/components/SyncInfoModal';
+import { SpaceSelectorModal } from '@/components/SpaceSelectorModal';
 import {
   fetchGlobalCloudState,
   pushGlobalCloudState,
@@ -22,6 +22,7 @@ import {
   SyncStatus,
   AppSyncData,
 } from '@/lib/syncManager';
+import { getSpaceIdFromEmail } from '@/lib/spaceManager';
 import { MessageCircle, Facebook, Mail } from 'lucide-react';
 
 export default function Home() {
@@ -32,17 +33,36 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedTacticalMatchId, setSelectedTacticalMatchId] = useState<string | null>(null);
 
+  // Multi-Admin Space Isolation
+  const [activeSpaceId, setActiveSpaceId] = useState<string>('global_state');
+  const activeSpaceIdRef = useRef<string>('global_state');
+  const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
+
   // Multi-Device Cloud Real-time Sync States
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
-  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [lastSyncTimestamp, setLastSyncTimestamp] = useState<number>(0);
-  const lastSyncTimestampRef = React.useRef<number>(0);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const lastSyncTimestampRef = useRef<number>(0);
 
   // Master Data States
   const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
   const [matches, setMatches] = useState<MatchEvent[]>(INITIAL_MATCHES);
+
+  // Synchronized refs to avoid stale closures during multi-device synchronization
+  const tournamentsRef = useRef(tournaments);
+  const matchesRef = useRef(matches);
+  const playersRef = useRef(players);
+  const dataVersionRef = useRef(1);
+
+  useEffect(() => {
+    tournamentsRef.current = tournaments;
+    matchesRef.current = matches;
+    playersRef.current = players;
+  }, [tournaments, matches, players]);
+
+  useEffect(() => {
+    activeSpaceIdRef.current = activeSpaceId;
+  }, [activeSpaceId]);
 
   // Modals
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
@@ -55,106 +75,191 @@ export default function Home() {
     setActiveTab('tactical');
   };
 
-  // 1. Initial Local Cache Load & Multi-Device Cloud Real-Time Sync
-  useEffect(() => {
-    let isMounted = true;
+  /**
+   * Load data for a specific space from Cloud (Supabase) and local cache
+   */
+  const loadSpaceData = useCallback(async (targetSpaceId: string) => {
+    setSyncStatus('syncing');
 
-    // Load local storage cache asynchronously to avoid synchronous effect setState warnings
-    const initTimer = setTimeout(() => {
+    // 1. Try local cache for this space first
+    try {
+      const cached = localStorage.getItem(`sportmaster_cache_${targetSpaceId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed.tournaments)) setTournaments(parsed.tournaments);
+        if (Array.isArray(parsed.matches)) setMatches(parsed.matches);
+        if (Array.isArray(parsed.players)) setPlayers(parsed.players);
+      }
+    } catch (e) {
+      console.warn('Error reading local cache for space', targetSpaceId, e);
+    }
+
+    // 2. Fetch fresh data from Supabase /api/sync
+    try {
+      const cloudData = await fetchGlobalCloudState(targetSpaceId);
+      if (cloudData) {
+        if (Array.isArray(cloudData.tournaments)) {
+          setTournaments(cloudData.tournaments);
+        }
+        if (Array.isArray(cloudData.matches)) {
+          setMatches(cloudData.matches);
+        }
+        if (Array.isArray(cloudData.players)) {
+          setPlayers(cloudData.players);
+        }
+        if (cloudData.dataVersion) {
+          dataVersionRef.current = cloudData.dataVersion;
+        }
+        if (cloudData.lastUpdated) {
+          lastSyncTimestampRef.current = cloudData.lastUpdated;
+          setLastSyncTimestamp(cloudData.lastUpdated);
+        }
+
+        // Cache locally for instant loading
+        try {
+          localStorage.setItem(
+            `sportmaster_cache_${targetSpaceId}`,
+            JSON.stringify({
+              tournaments: cloudData.tournaments,
+              matches: cloudData.matches,
+              players: cloudData.players,
+              lastUpdated: cloudData.lastUpdated,
+            })
+          );
+        } catch (e) {
+          console.warn('Could not cache space in localStorage', e);
+        }
+
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('synced');
+      }
+    } catch (err) {
+      console.warn(`Error loading space ${targetSpaceId}:`, err);
+      setSyncStatus('idle');
+    }
+  }, []);
+
+  /**
+   * Handle space change (e.g. from SpaceSelector or URL param)
+   */
+  const handleSelectSpace = (newSpaceId: string) => {
+    const clean = newSpaceId.trim() || 'global_state';
+    setActiveSpaceId(clean);
+    activeSpaceIdRef.current = clean;
+
+    // Update URL query string without reloading page
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (clean === 'global_state') {
+        url.searchParams.delete('space');
+        url.searchParams.delete('admin');
+      } else {
+        url.searchParams.set('space', clean);
+      }
+      window.history.replaceState({}, '', url.toString());
       try {
-        const savedPlayers = localStorage.getItem('sportmaster_players_pool');
-        const savedTournaments = localStorage.getItem('sportmaster_tournaments_pool');
-        const savedMatches = localStorage.getItem('sportmaster_matches_pool');
-        const savedAdminSession = localStorage.getItem('sportmaster_admin_session');
+        localStorage.setItem('sportmaster_active_space', clean);
+      } catch (e) {
+        console.warn('Could not store active space', e);
+      }
+    }
 
-        if (savedPlayers) setPlayers(JSON.parse(savedPlayers));
-        if (savedTournaments) setTournaments(JSON.parse(savedTournaments));
-        if (savedMatches) setMatches(JSON.parse(savedMatches));
+    loadSpaceData(clean);
+  };
 
-        if (savedAdminSession) {
-          const session = JSON.parse(savedAdminSession);
+  // 1. Initial Mount: detect URL parameters & saved admin sessions
+  useEffect(() => {
+    let initialSpace = 'global_state';
+
+    // Check URL parameters for direct follower links (?space=... or ?admin=...)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlSpace = params.get('space');
+      const urlAdmin = params.get('admin');
+
+      if (urlSpace) {
+        initialSpace = urlSpace.trim();
+      } else if (urlAdmin) {
+        initialSpace = getSpaceIdFromEmail(urlAdmin);
+      } else {
+        // Check saved space in localStorage
+        try {
+          const savedSpace = localStorage.getItem('sportmaster_active_space');
+          if (savedSpace) initialSpace = savedSpace;
+        } catch (e) {
+          console.warn('Error reading saved space', e);
+        }
+      }
+
+      // Check saved admin session
+      try {
+        const savedSession = localStorage.getItem('sportmaster_admin_session');
+        if (savedSession) {
+          const session = JSON.parse(savedSession);
           if (session.email) {
             setAdminEmail(session.email);
             setUserRole('admin');
+            // If no explicit URL space was requested, default to this admin's dedicated space
+            if (!urlSpace && !urlAdmin) {
+              initialSpace = getSpaceIdFromEmail(session.email);
+            }
           }
         }
       } catch (e) {
-        console.warn('Could not load from localStorage:', e);
+        console.warn('Could not load saved admin session', e);
       }
-    }, 0);
+    }
 
-    // Connect to Cloud API to sync Mobile & Desktop
-    const syncFromCloud = async () => {
-      setSyncStatus('syncing');
-      try {
-        const cloudData = await fetchGlobalCloudState();
-        if (isMounted && cloudData) {
-          if (Array.isArray(cloudData.tournaments) && cloudData.tournaments.length > 0) {
-            setTournaments(cloudData.tournaments);
-            localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(cloudData.tournaments));
-          }
-          if (Array.isArray(cloudData.matches) && cloudData.matches.length > 0) {
-            setMatches(cloudData.matches);
-            localStorage.setItem('sportmaster_matches_pool', JSON.stringify(cloudData.matches));
-          }
-          if (Array.isArray(cloudData.players) && cloudData.players.length > 0) {
-            setPlayers(cloudData.players);
-            localStorage.setItem('sportmaster_players_pool', JSON.stringify(cloudData.players));
-          }
-          if (cloudData.lastUpdated) {
-            lastSyncTimestampRef.current = cloudData.lastUpdated;
-            setLastSyncTimestamp(cloudData.lastUpdated);
-          }
-          setLastSyncTime(new Date());
-          setSyncStatus('synced');
-        } else {
-          setSyncStatus('synced');
-        }
-      } catch (err) {
-        console.warn('Initial cloud sync error:', err);
-        setSyncStatus('idle');
-      }
-    };
+    setActiveSpaceId(initialSpace);
+    activeSpaceIdRef.current = initialSpace;
+    loadSpaceData(initialSpace);
 
-    syncFromCloud();
-
-    // Subscribe to real-time events across devices & tabs
+    // Subscribe to cross-device real-time updates for active space
     const unsubscribe = subscribeToRealtimeSync(
       (updatedData: AppSyncData) => {
-        if (!isMounted) return;
         setSyncStatus('syncing');
-        if (Array.isArray(updatedData.tournaments) && updatedData.tournaments.length > 0) {
+        if (Array.isArray(updatedData.tournaments)) {
           setTournaments(updatedData.tournaments);
-          localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(updatedData.tournaments));
         }
-        if (Array.isArray(updatedData.matches) && updatedData.matches.length > 0) {
+        if (Array.isArray(updatedData.matches)) {
           setMatches(updatedData.matches);
-          localStorage.setItem('sportmaster_matches_pool', JSON.stringify(updatedData.matches));
         }
-        if (Array.isArray(updatedData.players) && updatedData.players.length > 0) {
+        if (Array.isArray(updatedData.players)) {
           setPlayers(updatedData.players);
-          localStorage.setItem('sportmaster_players_pool', JSON.stringify(updatedData.players));
+        }
+        if (updatedData.dataVersion) {
+          dataVersionRef.current = updatedData.dataVersion;
         }
         if (updatedData.lastUpdated) {
           lastSyncTimestampRef.current = updatedData.lastUpdated;
           setLastSyncTimestamp(updatedData.lastUpdated);
         }
-        setLastSyncTime(new Date());
         setSyncStatus('synced');
       },
-      () => lastSyncTimestampRef.current
+      () => ({
+        lastTimestamp: lastSyncTimestampRef.current,
+        tournamentsCount: tournamentsRef.current.length,
+        matchesCount: matchesRef.current.length,
+        playersCount: playersRef.current.length,
+        dataVersion: dataVersionRef.current,
+      }),
+      () => activeSpaceIdRef.current
     );
 
     return () => {
-      isMounted = false;
-      clearTimeout(initTimer);
       unsubscribe();
     };
-  }, []);
+  }, [loadSpaceData]);
 
+  // Admin Authentication handlers
   const handleAdminLoginSuccess = (email: string) => {
     setAdminEmail(email);
     setUserRole('admin');
+
+    // Switch to this admin's dedicated, persistent space
+    const adminSpace = getSpaceIdFromEmail(email);
+    handleSelectSpace(adminSpace);
   };
 
   const handleAdminLogout = () => {
@@ -166,61 +271,50 @@ export default function Home() {
     setUserRole('spectator');
   };
 
+  /**
+   * Save state locally and push to Cloud under the active space
+   */
   const saveStateToStorage = (
     newPlayers?: Player[],
     newMatches?: MatchEvent[],
     newTournaments?: Tournament[]
   ) => {
+    const finalPlayers = newPlayers || playersRef.current;
+    const finalMatches = newMatches || matchesRef.current;
+    const finalTournaments = newTournaments || tournamentsRef.current;
+    const spaceId = activeSpaceIdRef.current;
+
     try {
-      if (newPlayers) localStorage.setItem('sportmaster_players_pool', JSON.stringify(newPlayers));
-      if (newMatches) localStorage.setItem('sportmaster_matches_pool', JSON.stringify(newMatches));
-      if (newTournaments)
-        localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(newTournaments));
+      localStorage.setItem(
+        `sportmaster_cache_${spaceId}`,
+        JSON.stringify({
+          tournaments: finalTournaments,
+          matches: finalMatches,
+          players: finalPlayers,
+          lastUpdated: Date.now(),
+        })
+      );
     } catch (e) {
       console.warn('Could not save to localStorage:', e);
     }
 
-    // Automatically push updates to Cloud server so Mobile & PC stay in sync
+    // Push updates to Supabase scoped to this admin space
     setSyncStatus('syncing');
     const now = Date.now();
+    lastSyncTimestampRef.current = now;
+    dataVersionRef.current += 1;
     setLastSyncTimestamp(now);
-    setLastSyncTime(new Date());
 
-    pushGlobalCloudState({
-      players: newPlayers || players,
-      matches: newMatches || matches,
-      tournaments: newTournaments || tournaments,
-    }).then((ok) => {
+    pushGlobalCloudState(
+      {
+        players: finalPlayers,
+        matches: finalMatches,
+        tournaments: finalTournaments,
+      },
+      spaceId
+    ).then((ok) => {
       setSyncStatus(ok ? 'synced' : 'idle');
     });
-  };
-
-  const handleForceSync = async () => {
-    setSyncStatus('syncing');
-    try {
-      const cloudData = await fetchGlobalCloudState();
-      if (cloudData) {
-        if (Array.isArray(cloudData.tournaments) && cloudData.tournaments.length > 0) {
-          setTournaments(cloudData.tournaments);
-          localStorage.setItem('sportmaster_tournaments_pool', JSON.stringify(cloudData.tournaments));
-        }
-        if (Array.isArray(cloudData.matches) && cloudData.matches.length > 0) {
-          setMatches(cloudData.matches);
-          localStorage.setItem('sportmaster_matches_pool', JSON.stringify(cloudData.matches));
-        }
-        if (Array.isArray(cloudData.players) && cloudData.players.length > 0) {
-          setPlayers(cloudData.players);
-          localStorage.setItem('sportmaster_players_pool', JSON.stringify(cloudData.players));
-        }
-        if (cloudData.lastUpdated) {
-          setLastSyncTimestamp(cloudData.lastUpdated);
-        }
-        setLastSyncTime(new Date());
-      }
-      setSyncStatus('synced');
-    } catch {
-      setSyncStatus('idle');
-    }
   };
 
   // Player Handlers
@@ -250,7 +344,6 @@ export default function Home() {
     // Update player performance statistics automatically
     let updatedPlayers = [...players];
 
-    // If football match with scorers
     if (updatedMatch.sport === 'futbol' && updatedMatch.score?.scorers) {
       updatedMatch.score.scorers.forEach((sc) => {
         updatedPlayers = updatedPlayers.map((p) =>
@@ -261,7 +354,6 @@ export default function Home() {
       });
     }
 
-    // If MVP assigned
     if (updatedMatch.mvpPlayerId) {
       updatedPlayers = updatedPlayers.map((p) =>
         p.id === updatedMatch.mvpPlayerId
@@ -270,7 +362,6 @@ export default function Home() {
       );
     }
 
-    // Increment matches played and won for participants of this match
     if (updatedMatch.status === 'finished') {
       const homeWon =
         updatedMatch.sport === 'futbol'
@@ -320,10 +411,38 @@ export default function Home() {
     saveStateToStorage(undefined, updated);
   };
 
+  const handleUpdateMatch = (updatedMatch: MatchEvent) => {
+    const updated = matches.map((m) => (m.id === updatedMatch.id ? updatedMatch : m));
+    setMatches(updated);
+    saveStateToStorage(undefined, updated);
+  };
+
+  const handleDeleteMatch = (matchId: string) => {
+    const updated = matches.filter((m) => m.id !== matchId);
+    setMatches(updated);
+    saveStateToStorage(undefined, updated);
+  };
+
   const handleAddTournament = (newTournament: Tournament) => {
     const updated = [newTournament, ...tournaments];
     setTournaments(updated);
     saveStateToStorage(undefined, undefined, updated);
+  };
+
+  const handleUpdateTournament = (updatedTournament: Tournament) => {
+    const updated = tournaments.map((t) => (t.id === updatedTournament.id ? updatedTournament : t));
+    setTournaments(updated);
+    saveStateToStorage(undefined, undefined, updated);
+  };
+
+  const handleDeleteTournament = (tournamentId: string) => {
+    const updatedTournaments = tournaments.filter((t) => t.id !== tournamentId);
+    const updatedMatches = matches.map((m) =>
+      m.tournamentId === tournamentId ? { ...m, tournamentId: undefined } : m
+    );
+    setTournaments(updatedTournaments);
+    setMatches(updatedMatches);
+    saveStateToStorage(undefined, updatedMatches, updatedTournaments);
   };
 
   const handleSaveMatchSlots = (
@@ -367,7 +486,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans w-full max-w-full overflow-x-clip">
-      {/* Top Bar */}
+      {/* Top Bar (Responsive, Anti-Overlap, Space Switcher) */}
       <Header
         currentSport={currentSport}
         onSportChange={(s) => setCurrentSport(s)}
@@ -377,9 +496,8 @@ export default function Home() {
         onLogoutAdmin={handleAdminLogout}
         activeTab={activeTab}
         onTabChange={(t) => setActiveTab(t)}
-        syncStatus={syncStatus}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
-        onForceSync={handleForceSync}
+        activeSpaceId={activeSpaceId}
+        onOpenSpaceSelector={() => setIsSpaceModalOpen(true)}
       />
 
       {/* Main App Container */}
@@ -430,7 +548,11 @@ export default function Home() {
             userRole={userRole}
             onRecordResult={(m) => setRecordingMatch(m)}
             onAddMatch={handleAddMatch}
+            onUpdateMatch={handleUpdateMatch}
+            onDeleteMatch={handleDeleteMatch}
             onAddTournament={handleAddTournament}
+            onUpdateTournament={handleUpdateTournament}
+            onDeleteTournament={handleDeleteTournament}
             onSelectTacticalMatch={handleOpenTacticalForMatch}
           />
         )}
@@ -439,7 +561,6 @@ export default function Home() {
       {/* Subtle & Discreet Footer */}
       <footer className="border-t border-slate-900/70 bg-slate-950/60 py-3 sm:py-3.5 text-[11px] text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-          {/* Brand & Creator (Discreet) */}
           <div className="flex items-center gap-2 text-slate-400">
             <span className="font-semibold text-slate-300">AuraSport PRO</span>
             <span className="text-slate-700">·</span>
@@ -448,9 +569,7 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Social / Contact Icons (Compact & Subtle) */}
           <div className="flex items-center gap-2">
-            {/* WhatsApp */}
             <a
               href="https://wa.me/51983999322?text=Hola%20NelCSC,%20te%20escribo%20desde%20AuraSport"
               target="_blank"
@@ -462,7 +581,6 @@ export default function Home() {
               <MessageCircle className="w-3.5 h-3.5" />
             </a>
 
-            {/* Facebook */}
             <a
               href="https://www.facebook.com/share/1GwB2uf6EX/"
               target="_blank"
@@ -474,7 +592,6 @@ export default function Home() {
               <Facebook className="w-3.5 h-3.5" />
             </a>
 
-            {/* Gmail */}
             <a
               href="mailto:nelzoncsc@gmail.com"
               className="w-7 h-7 rounded-md bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors"
@@ -497,23 +614,21 @@ export default function Home() {
         />
       )}
 
-      {/* Admin Login Modal */}
+      {/* Admin Login Modal (Strict Supabase Auth) */}
       <AdminLoginModal
         isOpen={isAdminLoginModalOpen}
         onClose={() => setIsAdminLoginModalOpen(false)}
         onLoginSuccess={handleAdminLoginSuccess}
       />
 
-      {/* Multi-Device Cloud Real-Time Sync Modal */}
-      <SyncInfoModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-        syncStatus={syncStatus}
-        lastSyncTime={lastSyncTime}
-        tournamentsCount={tournaments.length}
-        matchesCount={matches.length}
-        playersCount={players.length}
-        onForceSync={handleForceSync}
+      {/* Space Selector & Follower Sharing Modal */}
+      <SpaceSelectorModal
+        isOpen={isSpaceModalOpen}
+        onClose={() => setIsSpaceModalOpen(false)}
+        activeSpaceId={activeSpaceId}
+        onSelectSpace={handleSelectSpace}
+        userRole={userRole}
+        adminEmail={adminEmail}
       />
     </div>
   );

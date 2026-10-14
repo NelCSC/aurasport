@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Player, SportType, UserRole, PlayerPosition } from '@/types/sports';
 import { FOOTBALL_POSITIONS, VOLLEYBALL_POSITIONS, formatWhatsAppLink } from '@/lib/sports-helpers';
+import { uploadImageToCloudinary } from '@/lib/cloudinary';
 import {
   UserPlus,
   Search,
@@ -17,6 +18,10 @@ import {
   Check,
   CheckCircle2,
   Users,
+  Camera,
+  Loader2,
+  CloudUpload,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface PlayerRosterManagerProps {
@@ -56,8 +61,45 @@ export const PlayerRosterManager: React.FC<PlayerRosterManagerProps> = ({
   const [formJerseyNumber, setFormJerseyNumber] = useState<number | ''>(10);
   const [formIsAvailable, setFormIsAvailable] = useState(true);
 
+  // Cloudinary image upload states
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Position choices
   const availablePositions = formSport === 'futbol' ? FOOTBALL_POSITIONS : VOLLEYBALL_POSITIONS;
+
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate size (max 8MB)
+    if (file.size > 8 * 1024 * 1024) {
+      setUploadError('La imagen no debe superar los 8MB.');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    setUploadError(null);
+
+    try {
+      const result = await uploadImageToCloudinary(file);
+      if (result.success && (result.secure_url || result.url)) {
+        setFormPhotoUrl(result.secure_url || result.url!);
+        setUploadError(null);
+      } else {
+        setUploadError(result.error || 'Error al subir la imagen a Cloudinary');
+      }
+    } catch (err: any) {
+      setUploadError(err?.message || 'Error inesperado durante la subida');
+    } finally {
+      setIsUploadingPhoto(false);
+      // Reset input value so re-selecting the same file fires onChange
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const openCreateModal = () => {
     setEditingPlayer(null);
@@ -69,6 +111,8 @@ export const PlayerRosterManager: React.FC<PlayerRosterManagerProps> = ({
     setFormSkillRating(5);
     setFormJerseyNumber(7);
     setFormIsAvailable(true);
+    setUploadError(null);
+    setIsUploadingPhoto(false);
     setIsModalOpen(true);
   };
 
@@ -82,6 +126,8 @@ export const PlayerRosterManager: React.FC<PlayerRosterManagerProps> = ({
     setFormSkillRating(player.skillRating);
     setFormJerseyNumber(player.jerseyNumber || '');
     setFormIsAvailable(player.isAvailable ?? true);
+    setUploadError(null);
+    setIsUploadingPhoto(false);
     setIsModalOpen(true);
   };
 
@@ -472,33 +518,96 @@ export const PlayerRosterManager: React.FC<PlayerRosterManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">
-                    Foto de Perfil (Cloudinary / Preset)
+                  <label className="block text-slate-300 font-medium mb-1 flex items-center justify-between">
+                    <span>Foto de Perfil</span>
+                    <span className="text-[10px] text-emerald-400 font-normal">Cloudinary CDN</span>
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={formPhotoUrl}
-                      onChange={(e) => setFormPhotoUrl(e.target.value)}
-                      placeholder="https://..."
-                      className="flex-1 bg-slate-950 border border-slate-700 text-white rounded-lg px-3 py-2 text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const sampleAvatars = [
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
-                          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
-                          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
-                          'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=300&q=80',
-                        ];
-                        setFormPhotoUrl(sampleAvatars[Math.floor(Math.random() * sampleAvatars.length)]);
-                      }}
-                      className="px-2.5 py-2 bg-slate-800 text-slate-200 rounded-lg text-xs flex items-center gap-1 border border-slate-700"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                    </button>
+
+                  {/* Hidden native file input for Mobile Camera & PC File Explorer */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoFileChange}
+                  />
+
+                  {/* Upload button & preview container */}
+                  <div className="flex items-center gap-2">
+                    {/* Thumbnail preview */}
+                    <div className="relative w-11 h-11 rounded-lg border border-slate-700 bg-slate-950 shrink-0 overflow-hidden flex items-center justify-center">
+                      {formPhotoUrl ? (
+                        <img
+                          src={formPhotoUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon className="w-5 h-5 text-slate-600" />
+                      )}
+                      {isUploadingPhoto && (
+                        <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex-1 flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingPhoto}
+                        className="w-full px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                      >
+                        {isUploadingPhoto ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Subiendo a Cloudinary...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>{formPhotoUrl ? 'Cambiar Foto (Cámara / PC)' : 'Subir desde Celular o PC'}</span>
+                          </>
+                        )}
+                      </button>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        {formPhotoUrl ? (
+                          <span className="text-emerald-400 flex items-center gap-1 truncate max-w-[170px]">
+                            <CheckCircle2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Foto vinculada</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">JPG, PNG o WEBP (máx. 8MB)</span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const sampleAvatars = [
+                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+                              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+                              'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+                              'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=300&q=80',
+                            ];
+                            setFormPhotoUrl(sampleAvatars[Math.floor(Math.random() * sampleAvatars.length)]);
+                          }}
+                          className="text-slate-400 hover:text-slate-200 underline text-[10px]"
+                        >
+                          Usar avatar de muestra
+                        </button>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Upload Error Alert */}
+                  {uploadError && (
+                    <p className="mt-1.5 text-xs text-rose-400 bg-rose-950/40 border border-rose-800/50 rounded px-2 py-1">
+                      {uploadError}
+                    </p>
+                  )}
                 </div>
               </div>
 
