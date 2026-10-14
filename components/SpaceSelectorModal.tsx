@@ -2,8 +2,6 @@
 
 import React, { useState } from 'react';
 import {
-  Trophy,
-  Users,
   Share2,
   Copy,
   Check,
@@ -15,14 +13,14 @@ import {
   Eye,
   CheckCircle2,
 } from 'lucide-react';
-import { generateFollowerShareUrl, getSpaceDisplayName, getSpaceIdFromEmail } from '@/lib/spaceManager';
+import { generateFollowerShareUrl, getSpaceDisplayName } from '@/lib/spaceManager';
 import { UserRole } from '@/types/sports';
 
 interface SpaceSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   activeSpaceId: string;
-  onSelectSpace: (spaceId: string) => void;
+  onSelectSpace?: (spaceId: string) => void;
   userRole: UserRole;
   adminEmail?: string;
 }
@@ -31,7 +29,6 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
   isOpen,
   onClose,
   activeSpaceId,
-  onSelectSpace,
   userRole,
   adminEmail,
 }) => {
@@ -42,7 +39,6 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
   const shareUrl = generateFollowerShareUrl(activeSpaceId);
   const currentSpaceName = getSpaceDisplayName(activeSpaceId, adminEmail);
   const isAdmin = userRole === 'admin';
-  const myAdminSpaceId = adminEmail ? getSpaceIdFromEmail(adminEmail) : '';
 
   const handleCopyLink = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -172,67 +168,15 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
               </p>
             </div>
           ) : (
-            /* Admin Workspace Controls */
-            <div className="space-y-3 pt-1">
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs text-slate-300">
-                <div className="flex items-center gap-2 font-bold text-amber-300">
-                  <Shield className="w-4 h-4" />
-                  <span>Aislamiento Total de tu Liga</span>
-                </div>
-                <p className="text-slate-400 text-[11px] leading-relaxed">
-                  Tus veedores solo pueden ver las actividades de esta liga. Tus jugadores registrados y partidos permanecen 100% aislados y no son visibles en las cuentas de otros administradores.
-                </p>
+            /* Admin Workspace Information */
+            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs text-slate-300">
+              <div className="flex items-center gap-2 font-bold text-amber-300">
+                <Shield className="w-4 h-4" />
+                <span>Aislamiento Total de tu Liga</span>
               </div>
-
-              {/* Quick switch between Admin Space and Central Demo */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">Alternar Espacio:</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      if (myAdminSpaceId) onSelectSpace(myAdminSpaceId);
-                      onClose();
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      activeSpaceId === myAdminSpaceId
-                        ? 'bg-amber-950/30 border-amber-600/60 shadow-sm'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white">Mi Liga Oficial</span>
-                      {activeSpaceId === myAdminSpaceId && (
-                        <span className="text-[9px] font-bold text-amber-400 bg-amber-950 px-1.5 py-0.5 rounded border border-amber-800">
-                          Activo
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">{adminEmail}</p>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onSelectSpace('global_state');
-                      onClose();
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      activeSpaceId === 'global_state'
-                        ? 'bg-emerald-950/30 border-emerald-500/60 shadow-sm'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white">Liga Central Demo</span>
-                      {activeSpaceId === 'global_state' && (
-                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800">
-                          Activo
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Plantilla de demostración</p>
-                  </button>
-                </div>
-              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Tus veedores solo pueden ver las actividades de esta liga oficial. Tus jugadores registrados, fixture y partidos permanecen 100% aislados y protegidos.
+              </p>
             </div>
           )}
         </div>

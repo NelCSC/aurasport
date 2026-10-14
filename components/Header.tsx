@@ -11,11 +11,8 @@ import {
   Activity,
   LogOut,
   KeyRound,
-  Layers,
-  ChevronDown,
   Share2,
 } from 'lucide-react';
-import { getSpaceDisplayName } from '@/lib/spaceManager';
 
 interface HeaderProps {
   currentSport: SportType;
@@ -49,54 +46,31 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'tournaments', label: 'Torneos & Fixture', icon: Trophy },
   ];
 
-  const spaceName = getSpaceDisplayName(activeSpaceId, adminEmail);
-
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/95 backdrop-blur-md shadow-lg shadow-black/40">
       {/* Primary Top Bar */}
       <div className="max-w-7xl mx-auto px-2.5 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-4">
-        {/* Left Section: Wordmark Brand & Active Space Pill */}
-        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
+        {/* Left Section: Wordmark Brand (AuraSport PRO) */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Brand Icon */}
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900 to-emerald-950/40 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold shadow-sm shrink-0">
             <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
           </div>
 
           {/* Brand Name */}
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              <span className="text-xs sm:text-base font-bold tracking-tight text-white truncate">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-sm sm:text-base font-black tracking-tight text-white whitespace-nowrap">
                 AuraSport
               </span>
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 shrink-0">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 shrink-0">
                 PRO
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-medium hidden lg:inline truncate">
+            <span className="text-[10px] text-slate-400 font-medium hidden md:inline whitespace-nowrap">
               Gestión Integral Fútbol & Vóley
             </span>
           </div>
-
-          {/* Active Space / League Badge (Clickable to view info or share) */}
-          <button
-            onClick={onOpenSpaceSelector}
-            title={
-              userRole === 'admin'
-                ? 'Espacio de tu Liga. Clic para compartir tu enlace con seguidores.'
-                : 'Liga oficial que estás siguiendo. Clic para ver detalles y compartir.'
-            }
-            className="flex items-center gap-1.5 px-1.5 sm:px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all text-[11px] font-medium min-w-0 max-w-[125px] sm:max-w-[195px] shrink truncate shadow-sm"
-          >
-            <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="truncate">{spaceName}</span>
-            {userRole === 'admin' ? (
-              <span className="text-[9px] font-bold text-amber-400 bg-amber-950/80 border border-amber-800/60 px-1 py-0.2 rounded shrink-0">
-                Admin
-              </span>
-            ) : (
-              <Share2 className="w-3 h-3 text-slate-400 shrink-0" />
-            )}
-          </button>
         </div>
 
         {/* Center Section: Desktop Navigation Links */}
@@ -155,10 +129,10 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenSpaceSelector}
             title="Compartir enlace de esta Liga con seguidores o jugadores"
-            className="hidden sm:flex items-center gap-1 p-1.5 sm:px-2 sm:py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-emerald-400 transition-colors text-xs shrink-0"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-emerald-400 transition-colors text-xs shrink-0 shadow-sm active:scale-95"
           >
             <Share2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="hidden md:inline text-[11px] font-medium">Compartir</span>
+            <span className="hidden sm:inline text-xs font-semibold">Compartir</span>
           </button>
 
           {/* Admin Role Management (Logged-in Badge vs Public Spectator Login) */}

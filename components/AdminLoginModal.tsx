@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Shield, Lock, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, X, KeyRound, Sparkles, Database } from 'lucide-react';
+import { Shield, Lock, Mail, Eye, EyeOff, AlertCircle, CheckCircle2, X, Sparkles, Database } from 'lucide-react';
 import { loginAdminWithSupabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 interface AdminLoginModalProps {
@@ -21,7 +21,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
 
   if (!isOpen) return null;
 
@@ -200,47 +199,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 </>
               )}
             </button>
-          </div>
-
-          {/* Supabase User Creation Guide (Collapsible) */}
-          <div className="pt-2 border-t border-slate-800">
-            <button
-              type="button"
-              onClick={() => setShowGuide(!showGuide)}
-              className="w-full flex items-center justify-between text-[11px] text-amber-400/90 hover:text-amber-300 font-semibold py-1.5 px-2 rounded-lg bg-amber-950/30 border border-amber-900/40 transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>¿Cómo registrar usuarios en tu Supabase?</span>
-              </span>
-              <span>{showGuide ? '▲ Ocultar' : '▼ Ver pasos'}</span>
-            </button>
-
-            {showGuide && (
-              <div className="mt-2.5 p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300 space-y-2 animate-in fade-in">
-                <p className="font-bold text-white text-xs">Pautas para crear administradores:</p>
-                <ol className="list-decimal list-inside space-y-1.5 text-slate-400">
-                  <li>
-                    Ingresa a tu consola en <span className="text-cyan-400 font-mono">supabase.com</span> y abre tu proyecto.
-                  </li>
-                  <li>
-                    En el menú de la izquierda, entra a <strong className="text-white">Authentication</strong> &gt; <strong className="text-white">Users</strong>.
-                  </li>
-                  <li>
-                    Haz clic en el botón verde <strong className="text-emerald-400">&quot;Add user&quot;</strong> &gt; <strong className="text-white">&quot;Create user&quot;</strong>.
-                  </li>
-                  <li>
-                    Escribe el correo y la contraseña que desees asignarle a ese usuario.
-                  </li>
-                  <li>
-                    (Opcional) En <strong className="text-white">User Metadata</strong> agrega: <code className="text-amber-300 font-mono">{`{"role": "admin"}`}</code>.
-                  </li>
-                  <li>
-                    Haz clic en <strong className="text-white">Create user</strong>. ¡Listo! El usuario ya podrá ingresar en esta pantalla.
-                  </li>
-                </ol>
-              </div>
-            )}
           </div>
         </form>
       </div>
