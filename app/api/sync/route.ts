@@ -49,8 +49,8 @@ function getInitialStateForSpace(spaceId: string): SpaceSportState {
 
   return {
     tournaments: personalizedTournaments,
-    matches: INITIAL_MATCHES,
-    players: INITIAL_PLAYERS,
+    matches: [],
+    players: [], // Cada administrador gestiona su propia lista de jugadores de forma independiente
     lastUpdated: Date.now(),
     dataVersion: 1,
   };
@@ -108,51 +108,20 @@ export async function GET(req: NextRequest) {
 
     const { url: supabaseUrl, key: supabaseKey, isConfigured } = getSupabaseConfig();
 
-    // Option: List all registered admin spaces in Supabase so followers can browse leagues
+    // Option: List public spaces (restricted to global demo for privacy and isolation)
     if (listSpaces) {
-      if (isConfigured) {
-        try {
-          const res = await fetch(
-            `${supabaseUrl}/rest/v1/sportmaster_sync?select=id,updated_at,tournaments,matches,players`,
-            {
-              headers: {
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-              },
-              cache: 'no-store',
-            }
-          );
-
-          if (res.ok) {
-            const rows = await res.json();
-            if (Array.isArray(rows)) {
-              const spaces = rows.map((r: any) => ({
-                id: r.id,
-                updated_at: r.updated_at,
-                tournamentsCount: Array.isArray(r.tournaments) ? r.tournaments.length : 0,
-                matchesCount: Array.isArray(r.matches) ? r.matches.length : 0,
-                playersCount: Array.isArray(r.players) ? r.players.length : 0,
-                tournaments: Array.isArray(r.tournaments)
-                  ? r.tournaments.map((t: any) => ({ id: t.id, name: t.name, sport: t.sport }))
-                  : [],
-              }));
-              return NextResponse.json({ spaces });
-            }
-          }
-        } catch (err) {
-          console.warn('Error listing spaces from Supabase:', err);
-        }
-      }
-
-      // Fallback spaces list from memory
-      const memSpaces = Object.keys(multiSpaceStore).map((id) => ({
-        id,
-        updated_at: new Date(multiSpaceStore[id].lastUpdated).toISOString(),
-        tournamentsCount: multiSpaceStore[id].tournaments.length,
-        matchesCount: multiSpaceStore[id].matches.length,
-        playersCount: multiSpaceStore[id].players.length,
-      }));
-      return NextResponse.json({ spaces: memSpaces.length > 0 ? memSpaces : [{ id: 'global_state', tournamentsCount: 2 }] });
+      return NextResponse.json({
+        spaces: [
+          {
+            id: 'global_state',
+            name: 'Liga Central (Global)',
+            updated_at: new Date().toISOString(),
+            tournamentsCount: 2,
+            matchesCount: 4,
+            playersCount: 22,
+          },
+        ],
+      });
     }
 
     // 1. Primary: Pull specific space from Supabase PostgreSQL table

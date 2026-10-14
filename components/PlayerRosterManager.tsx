@@ -236,7 +236,15 @@ export const PlayerRosterManager: React.FC<PlayerRosterManagerProps> = ({
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>
-            <strong>Bolsa de Jugadores Libres:</strong> Los participantes registrados quedan disponibles para ser jalados y armar los equipos en cada encuentro programado.
+            {userRole === 'admin' ? (
+              <>
+                <strong>Plantilla Exclusiva de tu Liga:</strong> Los jugadores que registres quedan guardados en tu espacio y listos para ser convocados en tus encuentros programados.
+              </>
+            ) : (
+              <>
+                <strong>Padrón Oficial de Jugadores:</strong> Participantes registrados en esta liga y disponibles para ser convocados en los encuentros.
+              </>
+            )}
           </span>
         </div>
         <span className="text-slate-400 font-mono shrink-0 hidden md:inline">
@@ -283,8 +291,33 @@ export const PlayerRosterManager: React.FC<PlayerRosterManagerProps> = ({
 
       {/* Players Cards Grid */}
       {filteredPlayers.length === 0 ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-12 text-center">
-          <p className="text-sm font-medium text-slate-400">No se encontraron jugadores con los filtros seleccionados.</p>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 sm:p-12 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+            <Users className="w-6 h-6" />
+          </div>
+          <h4 className="text-base font-bold text-white">
+            {players.filter((p) => p.sport === currentSport).length === 0
+              ? userRole === 'admin'
+                ? `Aún no has registrado jugadores en ${currentSport === 'futbol' ? 'Fútbol' : 'Vóley'}`
+                : `No hay jugadores registrados en esta liga todavía`
+              : 'No se encontraron participantes con los filtros seleccionados'}
+          </h4>
+          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+            {players.filter((p) => p.sport === currentSport).length === 0
+              ? userRole === 'admin'
+                ? 'Como administrador de tu liga, registra a tus propios integrantes, sube sus fotos desde tu dispositivo a Cloudinary y asígnales su dorsal para convocarlos a tus encuentros.'
+                : 'La organización del torneo registrará a los participantes de los equipos próximamente.'
+              : 'Prueba cambiando los filtros de posición, estado de convocatoria o término de búsqueda.'}
+          </p>
+          {userRole === 'admin' && players.filter((p) => p.sport === currentSport).length === 0 && (
+            <button
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all active:scale-95 mt-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ Registrar Primer Jugador</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

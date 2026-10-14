@@ -1,22 +1,21 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Trophy,
   Users,
   Share2,
   Copy,
   Check,
-  Search,
-  ExternalLink,
   MessageCircle,
   X,
   Shield,
   Layers,
   Sparkles,
+  Eye,
+  CheckCircle2,
 } from 'lucide-react';
-import { AdminSpaceInfo, generateFollowerShareUrl, getSpaceDisplayName } from '@/lib/spaceManager';
-import { fetchAvailableAdminSpaces } from '@/lib/syncManager';
+import { generateFollowerShareUrl, getSpaceDisplayName, getSpaceIdFromEmail } from '@/lib/spaceManager';
 import { UserRole } from '@/types/sports';
 
 interface SpaceSelectorModalProps {
@@ -36,34 +35,14 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
   userRole,
   adminEmail,
 }) => {
-  const [spaces, setSpaces] = useState<AdminSpaceInfo[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [customInput, setCustomInput] = useState('');
   const [copied, setCopied] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let isMounted = true;
-    setIsLoading(true);
-
-    fetchAvailableAdminSpaces()
-      .then((data) => {
-        if (isMounted) {
-          setSpaces(data);
-          setIsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setIsLoading(false);
-      });
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const shareUrl = generateFollowerShareUrl(activeSpaceId);
   const currentSpaceName = getSpaceDisplayName(activeSpaceId, adminEmail);
+  const isAdmin = userRole === 'admin';
+  const myAdminSpaceId = adminEmail ? getSpaceIdFromEmail(adminEmail) : '';
 
   const handleCopyLink = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -75,28 +54,10 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `🏆 ¡Sigue en vivo todos los partidos, fixture y tabla de posiciones de nuestra liga en AuraSport!\n\nIngresa aquí: ${shareUrl}`
+      `🏆 ¡Sigue en vivo todos los partidos, fixture y tabla de posiciones de nuestra liga "${currentSpaceName}" en AuraSport PRO!\n\nIngresa aquí: ${shareUrl}`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
-
-  const handleCustomSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = customInput.trim();
-    if (!clean) return;
-
-    let targetId = clean;
-    if (clean.includes('@')) {
-      targetId = `space_${clean.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-    }
-    onSelectSpace(targetId);
-    onClose();
-  };
-
-  const filteredSpaces = spaces.filter((s) => {
-    const query = searchQuery.toLowerCase();
-    return s.name.toLowerCase().includes(query) || s.id.toLowerCase().includes(query);
-  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
@@ -104,13 +65,23 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-950/80 shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner shrink-0">
-              <Layers className="w-5 h-5" />
+            <div
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-inner shrink-0 ${
+                isAdmin
+                  ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+                  : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+              }`}
+            >
+              {isAdmin ? <Shield className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-white">Espacios de Ligas & Torneos</h3>
+              <h3 className="text-sm sm:text-base font-bold text-white">
+                {isAdmin ? 'Mi Espacio de Administración' : 'Información de la Liga'}
+              </h3>
               <p className="text-[11px] sm:text-xs text-slate-400">
-                Gestión separada y vista pública exclusiva para seguidores
+                {isAdmin
+                  ? 'Gestión aislada y enlace exclusivo para tus seguidores'
+                  : 'Estás consultando la programación oficial de esta liga'}
               </p>
             </div>
           </div>
@@ -124,33 +95,42 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
 
         {/* Content Body */}
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto">
-          {/* Active Space Banner & Sharing Tools */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-br from-slate-950 to-slate-900 border border-emerald-500/30 shadow-sm space-y-3">
+          {/* Active League Info & Sharing Tools */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 shadow-sm space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 inline-flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  Espacio Activo
+                  Liga Activa en Pantalla
                 </span>
-                <h4 className="text-sm sm:text-base font-bold text-white mt-1">{currentSpaceName}</h4>
+                <h4 className="text-base sm:text-lg font-black text-white mt-1.5">{currentSpaceName}</h4>
                 <p className="text-[11px] text-slate-400 font-mono truncate max-w-[280px] sm:max-w-none">
-                  ID: {activeSpaceId}
+                  Identificador: {activeSpaceId}
                 </p>
               </div>
 
-              {userRole === 'admin' && (
-                <span className="text-[11px] font-bold text-amber-400 bg-amber-950/60 border border-amber-700/50 px-2 py-1 rounded-lg flex items-center gap-1 shrink-0">
-                  <Shield className="w-3 h-3" />
-                  Admin
+              {isAdmin ? (
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-950/60 border border-amber-700/50 px-2.5 py-1 rounded-lg flex items-center gap-1 shrink-0">
+                  <Shield className="w-3.5 h-3.5" />
+                  Organizador
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-700/50 px-2.5 py-1 rounded-lg flex items-center gap-1 shrink-0">
+                  <Eye className="w-3.5 h-3.5" />
+                  Modo Veedor
                 </span>
               )}
             </div>
 
             {/* Follower link box */}
-            <div className="pt-2 border-t border-slate-800/80 space-y-2">
-              <label className="text-[11px] font-medium text-slate-300 flex items-center gap-1.5">
+            <div className="pt-3 border-t border-slate-800/80 space-y-2">
+              <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
                 <Share2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Enlace exclusivo para tus seguidores o jugadores:</span>
+                <span>
+                  {isAdmin
+                    ? 'Enlace exclusivo para compartir con tus seguidores y jugadores:'
+                    : 'Comparte este torneo con otros seguidores o integrantes:'}
+                </span>
               </label>
 
               <div className="flex items-center gap-2">
@@ -167,7 +147,7 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
                 <button
                   onClick={handleShareWhatsApp}
                   title="Compartir en WhatsApp"
-                  className="px-2.5 py-1.5 rounded-lg bg-emerald-700/70 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors shrink-0 active:scale-95"
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors shrink-0 active:scale-95"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">WhatsApp</span>
@@ -176,116 +156,96 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
             </div>
           </div>
 
-          {/* Quick Connect by Admin Email or Code */}
-          <form onSubmit={handleCustomSubmit} className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-300">
-              Conectar a una Liga por Correo o Código de Admin
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Ej. admin@copaperu.com o space_..."
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
-              />
-              <button
-                type="submit"
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold transition-colors shrink-0"
-              >
-                Cargar
-              </button>
+          {/* Veedor View Notice */}
+          {!isAdmin ? (
+            <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Acceso Oficial en Tiempo Real</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Estás visualizando los encuentros, tablas de posiciones y estadísticas exclusivas de{' '}
+                <strong className="text-white">{currentSpaceName}</strong>.
+              </p>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Cada evento, gol, punto y cambio táctico se actualiza de manera instantánea mediante Supabase según lo gestionado por el organizador.
+              </p>
             </div>
-          </form>
-
-          {/* Available Spaces List */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-300">
-                Ligas & Organizadores Registrados en Supabase
-              </label>
-              <span className="text-[11px] text-slate-400">
-                {filteredSpaces.length} espacio{filteredSpaces.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {/* Filter Input */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filtrar por nombre o identificador..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-              {isLoading ? (
-                <div className="py-8 text-center text-xs text-slate-400">
-                  <span className="inline-block animate-spin mr-2">⚙️</span>
-                  Cargando espacios desde Supabase...
+          ) : (
+            /* Admin Workspace Controls */
+            <div className="space-y-3 pt-1">
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs text-slate-300">
+                <div className="flex items-center gap-2 font-bold text-amber-300">
+                  <Shield className="w-4 h-4" />
+                  <span>Aislamiento Total de tu Liga</span>
                 </div>
-              ) : filteredSpaces.length === 0 ? (
-                <div className="py-6 text-center text-xs text-slate-500 bg-slate-950/50 rounded-xl border border-slate-800/60">
-                  No se encontraron espacios coincidentes. Puedes crear uno iniciando sesión como nuevo Admin.
-                </div>
-              ) : (
-                filteredSpaces.map((s) => {
-                  const isSelected = s.id === activeSpaceId;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        onSelectSpace(s.id);
-                        onClose();
-                      }}
-                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
-                        isSelected
-                          ? 'bg-emerald-950/40 border-emerald-500/50 shadow-sm'
-                          : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-800/60 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white truncate">{s.name}</span>
-                          {isSelected && (
-                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800">
-                              Actual
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 font-mono truncate">{s.id}</p>
-                      </div>
+                <p className="text-slate-400 text-[11px] leading-relaxed">
+                  Tus veedores solo pueden ver las actividades de esta liga. Tus jugadores registrados y partidos permanecen 100% aislados y no son visibles en las cuentas de otros administradores.
+                </p>
+              </div>
 
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400 shrink-0">
-                        <div className="flex items-center gap-1" title="Torneos registrados">
-                          <Trophy className="w-3 h-3 text-amber-400" />
-                          <span>{s.tournamentsCount}</span>
-                        </div>
-                        <div className="flex items-center gap-1" title="Partidos programados">
-                          <Users className="w-3 h-3 text-emerald-400" />
-                          <span>{s.matchesCount}</span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+              {/* Quick switch between Admin Space and Central Demo */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">Alternar Espacio:</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      if (myAdminSpaceId) onSelectSpace(myAdminSpaceId);
+                      onClose();
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      activeSpaceId === myAdminSpaceId
+                        ? 'bg-amber-950/30 border-amber-600/60 shadow-sm'
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Mi Liga Oficial</span>
+                      {activeSpaceId === myAdminSpaceId && (
+                        <span className="text-[9px] font-bold text-amber-400 bg-amber-950 px-1.5 py-0.5 rounded border border-amber-800">
+                          Activo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">{adminEmail}</p>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onSelectSpace('global_state');
+                      onClose();
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      activeSpaceId === 'global_state'
+                        ? 'bg-emerald-950/30 border-emerald-500/60 shadow-sm'
+                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Liga Central Demo</span>
+                      {activeSpaceId === 'global_state' && (
+                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800">
+                          Activo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Plantilla de demostración</p>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Modal Footer */}
-        <div className="px-4 sm:px-6 py-3 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between text-xs text-slate-400 shrink-0">
+        <div className="px-4 sm:px-6 py-3 border-t border-slate-800 bg-slate-950/90 flex items-center justify-between text-xs text-slate-400 shrink-0">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Los seguidores solo pueden ver los eventos del espacio activo.</span>
+            <span>Sincronización multi-dispositivo activa.</span>
           </div>
           <button
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-colors"
           >
             Cerrar
           </button>

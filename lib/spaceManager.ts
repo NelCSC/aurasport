@@ -2,7 +2,7 @@
  * Multi-Admin Space Manager for AuraSport PRO
  * Allows each Supabase Administrator to have an isolated, persistent space
  * for their tournaments, matches, teams, and player rosters.
- * Spectators and followers can view exclusively that admin's events via direct link or space selector.
+ * Spectators and followers can view exclusively that admin's events via direct link.
  */
 
 export interface AdminSpaceInfo {
@@ -46,8 +46,14 @@ export function getSpaceDisplayName(spaceId: string, email?: string): string {
     return `Liga de ${capitalized}`;
   }
 
-  // If we only have spaceId like "space_admin_copaperu_com"
-  const raw = spaceId.replace(/^space_/, '').replace(/^admin_/, '');
+  // If we only have spaceId like "space_nelzoncsc_gmail_com"
+  const raw = spaceId
+    .replace(/^space_/, '')
+    .replace(/^admin_/, '')
+    .replace(/_gmail_com$/, '')
+    .replace(/_hotmail_com$/, '')
+    .replace(/_outlook_com$/, '')
+    .replace(/_yahoo_com$/, '');
   const parts = raw.split('_').filter(Boolean);
   if (parts.length > 0) {
     const formatted = parts

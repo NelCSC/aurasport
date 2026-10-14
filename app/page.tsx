@@ -26,14 +26,14 @@ import { getSpaceIdFromEmail } from '@/lib/spaceManager';
 import { MessageCircle, Facebook, Mail } from 'lucide-react';
 
 export default function Home() {
-  // Global App States - Default to public 'spectator' unless saved admin session exists
+  // Global App States - Default to public 'spectator' (Consistent across SSR & Client)
   const [currentSport, setCurrentSport] = useState<SportType>('futbol');
   const [userRole, setUserRole] = useState<UserRole>('spectator');
   const [adminEmail, setAdminEmail] = useState<string>('admin@aurasport.com');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedTacticalMatchId, setSelectedTacticalMatchId] = useState<string | null>(null);
 
-  // Multi-Admin Space Isolation
+  // Multi-Admin Space Isolation - Default to 'global_state'
   const [activeSpaceId, setActiveSpaceId] = useState<string>('global_state');
   const activeSpaceIdRef = useRef<string>('global_state');
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
@@ -43,7 +43,13 @@ export default function Home() {
   const [lastSyncTimestamp, setLastSyncTimestamp] = useState<number>(0);
   const lastSyncTimestampRef = useRef<number>(0);
 
-  // Master Data States
+  // Helper to detect if a player array contains the central demo mock dataset
+  const isDemoMockPlayers = (playersList?: Player[]): boolean => {
+    if (!Array.isArray(playersList) || playersList.length === 0) return false;
+    return playersList.some((p) => p.id === 'p-fut-1' || p.id === 'p-vol-1');
+  };
+
+  // Master Data States - Consistent initial server and client render
   const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
   const [matches, setMatches] = useState<MatchEvent[]>(INITIAL_MATCHES);
@@ -88,7 +94,19 @@ export default function Home() {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed.tournaments)) setTournaments(parsed.tournaments);
         if (Array.isArray(parsed.matches)) setMatches(parsed.matches);
-        if (Array.isArray(parsed.players)) setPlayers(parsed.players);
+        if (Array.isArray(parsed.players)) {
+          // If this is a custom admin space, purge mock demo players if present
+          if (targetSpaceId !== 'global_state' && isDemoMockPlayers(parsed.players)) {
+            setPlayers([]);
+          } else {
+            setPlayers(parsed.players);
+          }
+        }
+      } else {
+        if (targetSpaceId !== 'global_state') {
+          setPlayers([]);
+          setMatches([]);
+        }
       }
     } catch (e) {
       console.warn('Error reading local cache for space', targetSpaceId, e);
@@ -105,7 +123,11 @@ export default function Home() {
           setMatches(cloudData.matches);
         }
         if (Array.isArray(cloudData.players)) {
-          setPlayers(cloudData.players);
+          const sanitizedPlayers =
+            targetSpaceId !== 'global_state' && isDemoMockPlayers(cloudData.players)
+              ? []
+              : cloudData.players;
+          setPlayers(sanitizedPlayers);
         }
         if (cloudData.dataVersion) {
           dataVersionRef.current = cloudData.dataVersion;
@@ -122,7 +144,10 @@ export default function Home() {
             JSON.stringify({
               tournaments: cloudData.tournaments,
               matches: cloudData.matches,
-              players: cloudData.players,
+              players:
+                targetSpaceId !== 'global_state' && isDemoMockPlayers(cloudData.players)
+                  ? []
+                  : cloudData.players,
               lastUpdated: cloudData.lastUpdated,
             })
           );
@@ -168,25 +193,32 @@ export default function Home() {
     loadSpaceData(clean);
   };
 
-  // 1. Initial Mount: detect URL parameters & saved admin sessions
+  // 1. Initial Mount: restore client session & query params safely post-hydration
   useEffect(() => {
-    let initialSpace = 'global_state';
+    let isSubscribed = true;
+    let unsubscribeRealtime: (() => void) | null = null;
 
-    // Check URL parameters for direct follower links (?space=... or ?admin=...)
-    if (typeof window !== 'undefined') {
+    // Use a zero-delay timer so this executes strictly after hydration completes
+    const initTimer = setTimeout(() => {
+      if (!isSubscribed) return;
+
+      let targetSpace = 'global_state';
+      let detectedRole: UserRole = 'spectator';
+      let detectedEmail = 'admin@aurasport.com';
+
+      // Check URL parameters for direct follower links (?space=... or ?admin=...)
       const params = new URLSearchParams(window.location.search);
       const urlSpace = params.get('space');
       const urlAdmin = params.get('admin');
 
       if (urlSpace) {
-        initialSpace = urlSpace.trim();
+        targetSpace = urlSpace.trim();
       } else if (urlAdmin) {
-        initialSpace = getSpaceIdFromEmail(urlAdmin);
+        targetSpace = getSpaceIdFromEmail(urlAdmin);
       } else {
-        // Check saved space in localStorage
         try {
           const savedSpace = localStorage.getItem('sportmaster_active_space');
-          if (savedSpace) initialSpace = savedSpace;
+          if (savedSpace) targetSpace = savedSpace;
         } catch (e) {
           console.warn('Error reading saved space', e);
         }
@@ -198,57 +230,65 @@ export default function Home() {
         if (savedSession) {
           const session = JSON.parse(savedSession);
           if (session.email) {
-            setAdminEmail(session.email);
-            setUserRole('admin');
-            // If no explicit URL space was requested, default to this admin's dedicated space
+            detectedEmail = session.email;
+            detectedRole = 'admin';
             if (!urlSpace && !urlAdmin) {
-              initialSpace = getSpaceIdFromEmail(session.email);
+              targetSpace = getSpaceIdFromEmail(session.email);
             }
           }
         }
       } catch (e) {
         console.warn('Could not load saved admin session', e);
       }
-    }
 
-    setActiveSpaceId(initialSpace);
-    activeSpaceIdRef.current = initialSpace;
-    loadSpaceData(initialSpace);
+      setAdminEmail(detectedEmail);
+      setUserRole(detectedRole);
+      setActiveSpaceId(targetSpace);
+      activeSpaceIdRef.current = targetSpace;
 
-    // Subscribe to cross-device real-time updates for active space
-    const unsubscribe = subscribeToRealtimeSync(
-      (updatedData: AppSyncData) => {
-        setSyncStatus('syncing');
-        if (Array.isArray(updatedData.tournaments)) {
-          setTournaments(updatedData.tournaments);
-        }
-        if (Array.isArray(updatedData.matches)) {
-          setMatches(updatedData.matches);
-        }
-        if (Array.isArray(updatedData.players)) {
-          setPlayers(updatedData.players);
-        }
-        if (updatedData.dataVersion) {
-          dataVersionRef.current = updatedData.dataVersion;
-        }
-        if (updatedData.lastUpdated) {
-          lastSyncTimestampRef.current = updatedData.lastUpdated;
-          setLastSyncTimestamp(updatedData.lastUpdated);
-        }
-        setSyncStatus('synced');
-      },
-      () => ({
-        lastTimestamp: lastSyncTimestampRef.current,
-        tournamentsCount: tournamentsRef.current.length,
-        matchesCount: matchesRef.current.length,
-        playersCount: playersRef.current.length,
-        dataVersion: dataVersionRef.current,
-      }),
-      () => activeSpaceIdRef.current
-    );
+      loadSpaceData(targetSpace);
+
+      // Subscribe to cross-device real-time updates for active space
+      unsubscribeRealtime = subscribeToRealtimeSync(
+        (updatedData: AppSyncData) => {
+          setSyncStatus('syncing');
+          if (Array.isArray(updatedData.tournaments)) {
+            setTournaments(updatedData.tournaments);
+          }
+          if (Array.isArray(updatedData.matches)) {
+            setMatches(updatedData.matches);
+          }
+          if (Array.isArray(updatedData.players)) {
+            const sanitized =
+              activeSpaceIdRef.current !== 'global_state' && isDemoMockPlayers(updatedData.players)
+                ? []
+                : updatedData.players;
+            setPlayers(sanitized);
+          }
+          if (updatedData.dataVersion) {
+            dataVersionRef.current = updatedData.dataVersion;
+          }
+          if (updatedData.lastUpdated) {
+            lastSyncTimestampRef.current = updatedData.lastUpdated;
+            setLastSyncTimestamp(updatedData.lastUpdated);
+          }
+          setSyncStatus('synced');
+        },
+        () => ({
+          lastTimestamp: lastSyncTimestampRef.current,
+          tournamentsCount: tournamentsRef.current.length,
+          matchesCount: matchesRef.current.length,
+          playersCount: playersRef.current.length,
+          dataVersion: dataVersionRef.current,
+        }),
+        () => activeSpaceIdRef.current
+      );
+    }, 0);
 
     return () => {
-      unsubscribe();
+      isSubscribed = false;
+      clearTimeout(initTimer);
+      if (unsubscribeRealtime) unsubscribeRealtime();
     };
   }, [loadSpaceData]);
 
