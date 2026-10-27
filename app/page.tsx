@@ -74,9 +74,48 @@ export default function Home() {
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
   const [recordingMatch, setRecordingMatch] = useState<MatchEvent | null>(null);
 
+  /**
+   * Keep URL search query updated dynamically so browser address bar and share actions
+   * always link directly to the current section
+   */
+  const updateUrlParams = useCallback(
+    (updates: { sport?: SportType; tab?: string; match?: string | null }) => {
+      if (typeof window === 'undefined') return;
+      try {
+        const url = new URL(window.location.href);
+        if (updates.sport) url.searchParams.set('sport', updates.sport);
+        if (updates.tab) url.searchParams.set('tab', updates.tab);
+        if (updates.match !== undefined) {
+          if (updates.match) {
+            url.searchParams.set('match', updates.match);
+          } else {
+            url.searchParams.delete('match');
+          }
+        }
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {
+        console.warn('Could not update URL parameters', e);
+      }
+    },
+    []
+  );
+
+  const handleSportChange = (sport: SportType) => {
+    setCurrentSport(sport);
+    updateUrlParams({ sport });
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    updateUrlParams({ tab });
+  };
+
   const handleOpenTacticalForMatch = (matchId?: string) => {
     if (matchId) {
       setSelectedTacticalMatchId(matchId);
+      updateUrlParams({ tab: 'tactical', match: matchId });
+    } else {
+      updateUrlParams({ tab: 'tactical' });
     }
     setActiveTab('tactical');
   };
@@ -206,10 +245,13 @@ export default function Home() {
       let detectedRole: UserRole = 'spectator';
       let detectedEmail = 'admin@aurasport.com';
 
-      // Check URL parameters for direct follower links (?space=... or ?admin=...)
+      // Check URL parameters for direct follower links (?space=..., ?admin=..., ?sport=..., ?tab=..., ?match=...)
       const params = new URLSearchParams(window.location.search);
       const urlSpace = params.get('space');
       const urlAdmin = params.get('admin');
+      const urlSport = params.get('sport');
+      const urlTab = params.get('tab');
+      const urlMatch = params.get('match');
 
       if (urlSpace) {
         targetSpace = urlSpace.trim();
@@ -222,6 +264,17 @@ export default function Home() {
         } catch (e) {
           console.warn('Error reading saved space', e);
         }
+      }
+
+      // Restore specific view if present in deep-link URL
+      if (urlSport === 'futbol' || urlSport === 'voley') {
+        setCurrentSport(urlSport as SportType);
+      }
+      if (urlTab && ['dashboard', 'tactical', 'players', 'tournaments'].includes(urlTab)) {
+        setActiveTab(urlTab);
+      }
+      if (urlMatch) {
+        setSelectedTacticalMatchId(urlMatch);
       }
 
       // Check saved admin session
@@ -529,13 +582,13 @@ export default function Home() {
       {/* Top Bar (Responsive, Anti-Overlap, Space Switcher) */}
       <Header
         currentSport={currentSport}
-        onSportChange={(s) => setCurrentSport(s)}
+        onSportChange={handleSportChange}
         userRole={userRole}
         adminEmail={adminEmail}
         onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
         onLogoutAdmin={handleAdminLogout}
         activeTab={activeTab}
-        onTabChange={(t) => setActiveTab(t)}
+        onTabChange={handleTabChange}
         activeSpaceId={activeSpaceId}
         onOpenSpaceSelector={() => setIsSpaceModalOpen(true)}
       />
@@ -551,7 +604,7 @@ export default function Home() {
             matches={matches}
             userRole={userRole}
             onRecordResult={(m) => setRecordingMatch(m)}
-            onNavigateTab={(t) => setActiveTab(t)}
+            onNavigateTab={handleTabChange}
             onSelectTacticalMatch={handleOpenTacticalForMatch}
           />
         )}
@@ -669,6 +722,9 @@ export default function Home() {
         onSelectSpace={handleSelectSpace}
         userRole={userRole}
         adminEmail={adminEmail}
+        currentSport={currentSport}
+        activeTab={activeTab}
+        selectedTacticalMatchId={selectedTacticalMatchId}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Share2,
   Copy,
@@ -12,9 +12,10 @@ import {
   Sparkles,
   Eye,
   CheckCircle2,
+  MapPin,
 } from 'lucide-react';
 import { generateFollowerShareUrl, getSpaceDisplayName } from '@/lib/spaceManager';
-import { UserRole } from '@/types/sports';
+import { UserRole, SportType } from '@/types/sports';
 
 interface SpaceSelectorModalProps {
   isOpen: boolean;
@@ -23,6 +24,9 @@ interface SpaceSelectorModalProps {
   onSelectSpace?: (spaceId: string) => void;
   userRole: UserRole;
   adminEmail?: string;
+  currentSport?: SportType;
+  activeTab?: string;
+  selectedTacticalMatchId?: string | null;
 }
 
 export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
@@ -31,14 +35,42 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
   activeSpaceId,
   userRole,
   adminEmail,
+  currentSport = 'futbol',
+  activeTab = 'dashboard',
+  selectedTacticalMatchId = null,
 }) => {
   const [copied, setCopied] = useState(false);
 
+  // Lock background scroll when the modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const shareUrl = generateFollowerShareUrl(activeSpaceId);
+  // Deep-link to the exact sport and tab currently open
+  const shareUrl = generateFollowerShareUrl(activeSpaceId, {
+    sport: currentSport,
+    tab: activeTab,
+    matchId: selectedTacticalMatchId,
+  });
+
   const currentSpaceName = getSpaceDisplayName(activeSpaceId, adminEmail);
   const isAdmin = userRole === 'admin';
+
+  const sportName = currentSport === 'voley' ? 'Vóley' : 'Fútbol';
+  const tabNameMap: Record<string, string> = {
+    dashboard: 'Panel Principal & Marcador en Vivo',
+    tactical: 'Pizarra Táctica y Alineaciones',
+    players: 'Plantilla de Jugadores',
+    tournaments: 'Torneos, Fixture y Posiciones',
+  };
+  const activeTabName = tabNameMap[activeTab] || 'Sección General';
 
   const handleCopyLink = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -50,13 +82,13 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `🏆 ¡Sigue en vivo todos los partidos, fixture y tabla de posiciones de nuestra liga "${currentSpaceName}" en AuraSport PRO!\n\nIngresa aquí: ${shareUrl}`
+      `🏆 ¡Sigue en vivo la sección "${activeTabName}" (${sportName}) de nuestra liga "${currentSpaceName}" en AuraSport PRO!\n\nIngresa directamente aquí: ${shareUrl}`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150 overscroll-contain">
       <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-950/80 shrink-0">
@@ -119,15 +151,23 @@ export const SpaceSelectorModal: React.FC<SpaceSelectorModalProps> = ({
             </div>
 
             {/* Follower link box */}
-            <div className="pt-3 border-t border-slate-800/80 space-y-2">
-              <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
-                <Share2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>
-                  {isAdmin
-                    ? 'Enlace exclusivo para compartir con tus seguidores y jugadores:'
-                    : 'Comparte este torneo con otros seguidores o integrantes:'}
-                </span>
-              </label>
+            <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>
+                    {isAdmin
+                      ? 'Enlace directo a esta sección para tus seguidores:'
+                      : 'Comparte esta sección con otros seguidores o integrantes:'}
+                  </span>
+                </label>
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-semibold text-emerald-300">
+                  <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span>
+                    {activeTabName} · <strong className="text-white">{sportName}</strong>
+                  </span>
+                </div>
+              </div>
 
               <div className="flex items-center gap-2">
                 <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono truncate">

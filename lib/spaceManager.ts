@@ -65,12 +65,63 @@ export function getSpaceDisplayName(spaceId: string, email?: string): string {
   return 'Espacio Deportivo';
 }
 
+export interface ShareUrlOptions {
+  sport?: string;
+  tab?: string;
+  matchId?: string | null;
+  baseUrl?: string;
+}
+
 /**
- * Generates the shareable follower URL for a specific space
+ * Generates the shareable follower URL for a specific space and current view
  */
-export function generateFollowerShareUrl(spaceId: string, baseUrl?: string): string {
+export function generateFollowerShareUrl(
+  spaceId: string,
+  optionsOrBaseUrl?: ShareUrlOptions | string
+): string {
+  let baseUrl: string | undefined;
+  let sport: string | undefined;
+  let tab: string | undefined;
+  let matchId: string | null | undefined;
+
+  if (typeof optionsOrBaseUrl === 'string') {
+    baseUrl = optionsOrBaseUrl;
+  } else if (optionsOrBaseUrl) {
+    baseUrl = optionsOrBaseUrl.baseUrl;
+    sport = optionsOrBaseUrl.sport;
+    tab = optionsOrBaseUrl.tab;
+    matchId = optionsOrBaseUrl.matchId;
+  }
+
   const origin =
     baseUrl ||
-    (typeof window !== 'undefined' ? window.location.origin : 'https://aurasport.vercel.app');
-  return `${origin}/?space=${encodeURIComponent(spaceId)}`;
+    (typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://aurasport.vercel.app');
+
+  try {
+    const url = new URL(origin);
+    if (spaceId) {
+      url.searchParams.set('space', spaceId);
+    }
+    if (sport) {
+      url.searchParams.set('sport', sport);
+    }
+    if (tab) {
+      url.searchParams.set('tab', tab);
+    }
+    if (matchId) {
+      url.searchParams.set('match', matchId);
+    }
+    return url.toString();
+  } catch {
+    const params = new URLSearchParams();
+    if (spaceId) params.set('space', spaceId);
+    if (sport) params.set('sport', sport);
+    if (tab) params.set('tab', tab);
+    if (matchId) params.set('match', matchId);
+    const query = params.toString();
+    return query ? `${origin}/?${query}` : origin;
+  }
 }
+
